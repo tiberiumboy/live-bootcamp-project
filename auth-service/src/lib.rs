@@ -1,6 +1,6 @@
-use axum::routing::{post, Router};
+use axum::routing::{get, post, Router};
 use axum::serve::Serve;
-use routes::{login, logout, signup, verify_2fa, verify_token};
+use routes::{hello, login, logout, signup, verify_2fa, verify_token};
 use std::io::Result;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -17,6 +17,7 @@ impl Application {
     pub async fn build(socket: SocketAddr) -> Result<Self> {
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
+            .route("/hello", get(hello))
             .route("/signup", post(signup))
             .route("/login", post(login))
             .route("/logout", post(logout))
