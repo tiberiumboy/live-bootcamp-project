@@ -54,12 +54,14 @@ async fn protected(jar: CookieJar) -> impl IntoResponse {
         }
     };
 
+    // Is there a better way to do this without having to initialize a new client builder everytime protected is called?
     let api_client = reqwest::Client::builder().build().unwrap();
 
     let verify_token_body = serde_json::json!({
         "token": &jwt_cookie.value(),
     });
 
+    // TODO: Research on what's the difference between AUTH_SERVICE_HOST_NAME and AUTH_SERVICE_IP?
     let auth_hostname = env::var("AUTH_SERVICE_HOST_NAME").unwrap_or("0.0.0.0".to_owned());
     let url = format!("http://{}:3000/verify-token", auth_hostname);
 
