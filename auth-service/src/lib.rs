@@ -1,18 +1,45 @@
 use app_state::AppState;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, Router};
 use axum::serve::Serve;
+use axum::Json;
+use domain::error::AuthAPIError;
+use reqwest::StatusCode;
 use routes::{hello, login, logout, signup, verify_2fa, verify_token};
+use serde::{Deserialize, Serialize};
 use std::io::Result;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::sync::RwLock;
 use tower_http::services::ServeDir;
 
 pub mod app_state;
 pub mod domain;
 pub mod routes;
 pub mod services;
+
+#[derive(Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
+
+impl IntoResponse for AuthAPIError {
+    fn into_response(self) -> Response {
+        let (status, error_msg) = match self {
+            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
+            AuthAPIError::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
+            AuthAPIError::UnexpectedError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
+            }
+            AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
+            AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
+        };
+        let body = Json(ErrorResponse {
+            error: error_msg.to_owned(),
+        });
+        (status, body).into_response()
+    }
+}
 
 pub struct Application {
     server: Serve<Router, Router>,

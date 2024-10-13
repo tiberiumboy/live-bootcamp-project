@@ -50,10 +50,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_user() {
-        let email = "test@test.com".to_owned();
-        let password = "password123!".to_owned();
-        let user = User::new(email, password, true);
-
+        let email = "test@test.com";
+        let password = "password123!";
+        let result = User::parse(email, password, true);
+        assert_eq!(result.is_ok(), true);
+        let user = result.unwrap();
         let mut db = HashmapUserStore::default();
         let result = db.add_user(user);
         assert_eq!(result.is_ok(), true);
@@ -61,10 +62,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user() {
-        let email = "test@test.com".to_owned();
-        let password = "password123!".to_owned();
-        let user = User::new(email, password, true);
+        let email = "test@test.com";
+        let password = "password123!";
+        let result = User::parse(email, password, true);
+        assert_eq!(result.is_ok(), true);
 
+        let user = result.unwrap();
         let mut db = HashmapUserStore::default();
         let result = db.add_user(user);
         assert_eq!(result.is_ok(), true);
@@ -75,10 +78,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_user() {
-        let email = "test@test.com".to_owned();
-        let password = "password123!".to_owned();
-        let user = User::new(email, password, true);
+        let email = "test@test.com";
+        let password = "password123!";
+        let result = User::parse(email, password, true);
+        assert_eq!(result.is_ok(), true);
 
+        let user = result.unwrap();
         let mut db = HashmapUserStore::default();
         let result = db.add_user(user);
         assert_eq!(result.is_ok(), true);

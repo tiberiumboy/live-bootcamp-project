@@ -5,7 +5,8 @@ use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
-use crate::domain::user::User;
+use crate::domain::error::AuthAPIError;
+use crate::domain::user::{User, UserError};
 
 #[derive(Debug, Deserialize)]
 pub struct SignupRequest {
@@ -23,16 +24,16 @@ pub struct SignupResponse {
 pub async fn signup(
     State(state): State<Arc<AppState>>,
     Json(request): Json<SignupRequest>,
-) -> impl IntoResponse {
-    // TODO: before we do this, we need to validate our user inputs.
+) -> Result<impl IntoResponse, AuthAPIError> {
     // if we have invalid input from either email or password, return 400 for invalid input
-
     // create a new user template
-    let user = User::new(
-        request.email.clone(),
-        request.password,
-        request.requires_2fa,
-    );
+    let user = match User::parse(&request.email, &request.password, request.requires_2fa) {
+        Ok(user) => user,
+        Err(e) => match e {
+            UserError::InvalidEmail => return Err(AuthAPIError::InvalidEmail),
+            UserError::InvalidPassword => return Err(AuthAPIError::InvalidPassword),
+        },
+    };
 
     // access database
     let mut user_store = state.user_store.write().await;
@@ -43,13 +44,9 @@ pub async fn signup(
             let response = Json(SignupResponse {
                 message: "User created successfully!".to_string(),
             });
-            (StatusCode::CREATED, response)
+            Ok((StatusCode::CREATED, response).into_response())
         }
-        Err(_) => {
-            let response = Json(SignupResponse {
-                message: "Email already exists".to_owned(),
-            });
-            (StatusCode::CONFLICT, response)
-        }
+        // probably a bad practice?
+        Err(_) => Err(AuthAPIError::UserAlreadyExists),
     }
 }
