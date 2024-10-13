@@ -1,6 +1,10 @@
+use auth_service::app_state::AppState;
+use auth_service::services::hashmap_user_store::HashmapUserStore;
 use auth_service::Application;
 use std::env;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
@@ -13,7 +17,13 @@ async fn main() {
     };
     let ip4 = IpAddr::V4(addr);
     let socket = SocketAddr::new(ip4, 3000);
-    let app = Application::build(socket)
+
+    // our first dependency injection
+    let hashmap = HashmapUserStore::default();
+    let user_store = Arc::new(RwLock::new(hashmap));
+    let app_state = Arc::new(AppState::new(user_store));
+
+    let app = Application::build(app_state, socket)
         .await
         .expect("Failed to build app");
     app.run().await.expect("Failed to run app");

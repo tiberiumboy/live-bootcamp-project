@@ -2,7 +2,7 @@ use crate::helpers::TestApp;
 use reqwest::StatusCode;
 
 #[tokio::test]
-pub async fn should_return_200() {
+pub async fn should_return_201_if_valid_input() {
     let app = TestApp::new().await;
 
     let test_case = serde_json::json!(

@@ -1,7 +1,13 @@
-use auth_service::Application;
+use auth_service::{
+    app_state::AppState, services::hashmap_user_store::HashmapUserStore, Application,
+};
 use reqwest::Client;
 use serde::Serialize;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
+use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
@@ -26,7 +32,11 @@ impl TestApp {
     pub async fn new() -> Self {
         let ip4 = IpAddr::V4(Ipv4Addr::LOCALHOST);
         let socket = SocketAddr::new(ip4, 0);
-        let app = Application::build(socket)
+
+        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+        let app_state = Arc::new(AppState::new(user_store));
+
+        let app = Application::build(app_state, socket)
             .await
             .expect("Failed to build app");
         let address = format!("http://{}", app.address.clone());
