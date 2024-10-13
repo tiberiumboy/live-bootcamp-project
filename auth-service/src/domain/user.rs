@@ -1,5 +1,3 @@
-use crate::services::hashmap_user_store::UserStoreError;
-
 #[derive(Debug)]
 pub enum UserError {
     InvalidEmail,

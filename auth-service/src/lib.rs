@@ -47,7 +47,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(app_state: Arc<AppState>, socket: SocketAddr) -> Result<Self> {
+    pub async fn build(app_state: AppState, socket: SocketAddr) -> Result<Self> {
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             .route("/hello", get(hello))

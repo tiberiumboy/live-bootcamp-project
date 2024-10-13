@@ -34,7 +34,7 @@ impl TestApp {
         let socket = SocketAddr::new(ip4, 0);
 
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
-        let app_state = Arc::new(AppState::new(user_store));
+        let app_state = AppState::new(user_store);
 
         let app = Application::build(app_state, socket)
             .await

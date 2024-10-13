@@ -21,7 +21,7 @@ async fn main() {
     // our first dependency injection
     let hashmap = HashmapUserStore::default();
     let user_store = Arc::new(RwLock::new(hashmap));
-    let app_state = Arc::new(AppState::new(user_store));
+    let app_state = AppState::new(user_store);
 
     let app = Application::build(app_state, socket)
         .await

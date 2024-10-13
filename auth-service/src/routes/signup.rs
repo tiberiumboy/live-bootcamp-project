@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::borrow::BorrowMut;
 
 use axum::{extract::State, response::IntoResponse, Json};
 use reqwest::StatusCode;
@@ -12,7 +12,7 @@ use crate::domain::user::{User, UserError};
 pub struct SignupRequest {
     email: String,
     password: String,
-    #[serde(alias = "requires2FA")]
+    #[serde(rename = "requires2FA")]
     requires_2fa: bool,
 }
 
@@ -22,7 +22,7 @@ pub struct SignupResponse {
 }
 
 pub async fn signup(
-    State(state): State<Arc<AppState>>,
+    State(state): State<AppState>,
     Json(request): Json<SignupRequest>,
 ) -> Result<impl IntoResponse, AuthAPIError> {
     // if we have invalid input from either email or password, return 400 for invalid input
@@ -35,11 +35,14 @@ pub async fn signup(
         },
     };
 
-    // access database
     let mut user_store = state.user_store.write().await;
 
-    // try adding the user.
-    match user_store.add_user(user) {
+    if user_store.get_user(&request.email).await.is_ok() {
+        return Err(AuthAPIError::UserAlreadyExists);
+    }
+
+    // how can I get the mutable state of this?
+    match user_store.add_user(user).await {
         Ok(_) => {
             let response = Json(SignupResponse {
                 message: "User created successfully!".to_string(),
