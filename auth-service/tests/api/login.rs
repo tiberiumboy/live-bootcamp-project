@@ -5,11 +5,22 @@ use reqwest::StatusCode;
 pub async fn should_return_206() {
     let app = TestApp::new().await;
 
+    // first, create a test account.
+    let body = serde_json::json!({
+        "email":"test@test.com",
+        "password":"password123!",
+        "requires2FA": true
+    });
+    let new_account = app.post_signup(&body).await;
+    assert_eq!(new_account.status(), StatusCode::CREATED);
+
+    // then, log into test account
     let test = serde_json::json!({
         "email":"test@test.com",
         "password":"password123!"
     });
 
+    // check for result
     let result = app.post_login(&test).await;
     assert_eq!(result.status(), StatusCode::PARTIAL_CONTENT);
 }

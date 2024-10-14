@@ -1,33 +1,9 @@
+use super::{email::Email, password::Password};
+
 #[derive(Debug)]
 pub enum UserError {
     InvalidEmail,
     InvalidPassword,
-}
-
-#[derive(Debug, Clone)]
-pub struct Email(String);
-
-impl Email {
-    pub fn parse(email: &str) -> Result<Self, UserError> {
-        if email.contains("@") {
-            Ok(Self(email.to_string()))
-        } else {
-            Err(UserError::InvalidEmail)
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Password(String);
-
-impl Password {
-    pub fn parse(password: &str) -> Result<Self, UserError> {
-        if password.len() >= 8 {
-            Ok(Self(password.to_string()))
-        } else {
-            Err(UserError::InvalidPassword)
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -48,11 +24,23 @@ impl User {
         })
     }
 
-    pub fn get_email(&self) -> &str {
-        &self.email.0
+    pub fn password_match(&self, password: &Password) -> bool {
+        self.password.eq(password)
     }
 
-    pub fn password_match(&self, password: &str) -> bool {
-        self.password.0 == password
+    pub fn get_email(&self) -> &Email {
+        &self.email
+    }
+}
+
+impl AsRef<Email> for User {
+    fn as_ref(&self) -> &Email {
+        &self.email
+    }
+}
+
+impl AsRef<Password> for User {
+    fn as_ref(&self) -> &Password {
+        &self.password
     }
 }

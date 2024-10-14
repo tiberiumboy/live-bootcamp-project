@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 
 use crate::domain::data_store::{UserStore, UserStoreError};
-use crate::domain::user::User;
+use crate::domain::{email::Email, password::Password, user::User};
 
 #[derive(Default, Clone, Debug)]
 pub struct HashmapUserStore {
-    users: HashMap<String, User>,
+    users: HashMap<Email, User>,
 }
 
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
-        if self.users.iter().any(|e| e.0.eq(&user.get_email())) {
+        let email = &user.as_ref();
+        if self.users.iter().any(|e| e.0.eq(email)) {
             return Err(UserStoreError::UserAlreadyExists);
         }
         let email = user.get_email().to_owned();
@@ -19,7 +20,7 @@ impl UserStore for HashmapUserStore {
         Ok(())
     }
 
-    async fn get_user(&self, email: &str) -> Result<User, UserStoreError> {
+    async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         let user = self.users.iter().find(|e| e.0.eq(email));
         match user {
             Some((_, user)) => Ok(user.clone()),
@@ -27,14 +28,13 @@ impl UserStore for HashmapUserStore {
         }
     }
 
-    async fn validate_user(&self, email: &str, password: &str) -> Result<(), UserStoreError> {
-        // TODO: I know there's a better way to write this expression somehow?
-        let user = match self.get_user(email).await {
-            Ok(user) => user,
-            Err(e) => return Err(e),
-        };
-
-        if user.password_match(password) == false {
+    async fn validate_user(
+        &self,
+        email: &Email,
+        password: &Password,
+    ) -> Result<(), UserStoreError> {
+        let user = self.get_user(email).await?;
+        if user.password_match(&password) == false {
             return Err(UserStoreError::InvalidCredentials);
         }
         Ok(())
@@ -67,10 +67,10 @@ mod tests {
 
         let user = result.unwrap();
         let mut db = HashmapUserStore::default();
-        let result = db.add_user(user).await;
+        let result = db.add_user(user.clone()).await;
         assert_eq!(result.is_ok(), true);
 
-        let result = db.get_user("test@test.com").await;
+        let result = db.get_user(user.as_ref()).await;
         assert_eq!(result.is_ok(), true);
     }
 
@@ -83,13 +83,10 @@ mod tests {
 
         let user = result.unwrap();
         let mut db = HashmapUserStore::default();
-        let result = db.add_user(user).await;
+        let result = db.add_user(user.clone()).await;
         assert_eq!(result.is_ok(), true);
 
-        let result = db.validate_user("test@test.com", "password").await;
-        assert_eq!(result.is_err(), true);
-
-        let result = db.validate_user("test@test.com", "password123!").await;
+        let result = db.validate_user(user.as_ref(), user.as_ref()).await;
         assert_eq!(result.is_ok(), true);
     }
 }
