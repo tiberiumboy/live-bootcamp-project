@@ -10,7 +10,10 @@ use serde::Deserialize;
 
 use crate::{
     app_state::AppState,
-    domain::{email::Email, error::AuthAPIError},
+    domain::{
+        email::{self, Email},
+        error::AuthAPIError,
+    },
 };
 
 #[derive(Debug, Deserialize)]

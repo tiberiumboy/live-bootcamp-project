@@ -72,8 +72,8 @@ impl Application {
             .route("/verify-2fa", post(verify_2fa))
             .route("/verify-token", post(verify_token))
             .route("/delete-account", delete(delete_account))
-            .layer(cors)
-            .with_state(app_state);
+            .with_state(app_state)
+            .layer(cors);
         let listener = TcpListener::bind(socket).await?;
 
         // let grpc = socket.clone();
