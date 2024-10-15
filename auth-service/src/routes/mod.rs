@@ -1,3 +1,4 @@
+pub mod delete_account;
 pub mod hello;
 pub mod jwt;
 pub mod login;
@@ -6,6 +7,7 @@ pub mod signup;
 pub mod verify_2fa;
 pub mod verify_token;
 
+pub use delete_account::*;
 pub use hello::*;
 pub use login::*;
 pub use logout::*;

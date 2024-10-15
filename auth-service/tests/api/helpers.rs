@@ -16,6 +16,15 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    async fn get<T: Serialize>(&self, url: &str, content: &T) -> reqwest::Response {
+        self.http_client
+            .get(url)
+            .json(content)
+            .send()
+            .await
+            .expect(&format!("Fail to get at url: {}", url))
+    }
+
     async fn post<T: Serialize>(&self, url: &str, content: &T) -> reqwest::Response {
         self.http_client
             .post(url)
@@ -23,6 +32,15 @@ impl TestApp {
             .send()
             .await
             .expect(&format!("Fail to post at url: {}", url))
+    }
+
+    async fn delete<T: Serialize>(&self, url: &str, content: &T) -> reqwest::Response {
+        self.http_client
+            .delete(url)
+            .json(content)
+            .send()
+            .await
+            .expect(&format!("Fail to delete at url: {}", url))
     }
 
     pub fn get_random_email() -> String {
@@ -82,6 +100,11 @@ impl TestApp {
 
     pub async fn post_verify_token<T: Serialize>(&self, body: &T) -> reqwest::Response {
         self.post(&format!("{}/verify-token", &self.address), body)
+            .await
+    }
+
+    pub async fn delete_account<T: Serialize>(&self, body: &T) -> reqwest::Response {
+        self.delete(&format!("{}/delete-account", &self.address), body)
             .await
     }
 }

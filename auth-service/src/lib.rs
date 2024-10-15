@@ -1,15 +1,14 @@
 use app_state::AppState;
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post, Router};
+use axum::routing::{delete, get, post, Router};
 use axum::serve::Serve;
 use axum::Json;
 use domain::error::AuthAPIError;
 use reqwest::StatusCode;
-use routes::{hello, login, logout, signup, verify_2fa, verify_token};
+use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
 use serde::{Deserialize, Serialize};
 use std::io::Result;
 use std::net::SocketAddr;
-use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
 
@@ -33,6 +32,7 @@ impl IntoResponse for AuthAPIError {
             }
             AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
             AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
+            AuthAPIError::NotFound => (StatusCode::NOT_FOUND, "User is not found!"),
         };
         let body = Json(ErrorResponse {
             error: error_msg.to_owned(),
@@ -56,6 +56,7 @@ impl Application {
             .route("/logout", post(logout))
             .route("/verify-2fa", post(verify_2fa))
             .route("/verify-token", post(verify_token))
+            .route("/delete-account", delete(delete_account))
             .with_state(app_state);
         let listener = TcpListener::bind(socket).await?;
         let address = listener.local_addr()?; // why string?
