@@ -19,6 +19,8 @@ impl LoginRequest {
     }
 }
 
+// somewhere here - I'd like to send a JWT as a response back,
+// but seeing how we're implementing a two form factor authentication - I need to wait for the class to catch up on this before sending JWT response.
 pub async fn login(
     State(state): State<AppState>,
     Json(login): Json<LoginRequest>,

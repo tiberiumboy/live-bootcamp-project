@@ -16,3 +16,5 @@ uuid = { version = "^1", features = ["v4", "serde"] }
 openssl = { version = "^0", features = ["vendored"] }
 async-trait = "0.1.83"
 regex = "1.11.0"
+tonic = "0.12.3"
+jsonwebtoken = "9.3.0"

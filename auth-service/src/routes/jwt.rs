@@ -1,6 +1,7 @@
 use axum::Error;
 use serde::{Deserialize, Serialize};
 
+// this might change...
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JWToken {
     token: String,

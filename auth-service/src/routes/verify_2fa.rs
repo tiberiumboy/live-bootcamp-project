@@ -1,8 +1,12 @@
 use crate::routes::jwt::JWToken;
 use axum::{response::IntoResponse, Json};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use uuid::Uuid;
+use tonic::{transport::Server, Request, Response, Status };
+
+tonic::include_proto!("verify_token_service");
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -25,6 +29,11 @@ impl VerifyToken {
     }
 }
 
+#[derive(Deserialize)]
+pub struct VerifyTokenResponse {
+
+}
+
 pub async fn verify_2fa(Json(input): Json<VerifyToken>) -> impl IntoResponse {
     /*
         allowed exception list:
@@ -35,7 +44,11 @@ pub async fn verify_2fa(Json(input): Json<VerifyToken>) -> impl IntoResponse {
     */
 
     dbg!(&input);
-    let token = JWToken::validate(input.email, &input.login_attempt_id, &input.code).unwrap();
-    dbg!(token);
-    StatusCode::OK.into_response()
+    let secret_passphrase = "Let's get rusty";
+    let key = EncodingKey::from_secret(secret_passphrase.as_ref());
+    let token = encode(&Header::default(), &input.email, &key);
+    // let token = JWToken::validate(input.email, &input.login_attempt_id, &input.code).unwrap();
+    // dbg!(token);
+    let body = Json()
+    (StatusCode::OK.into_response(), Json({"token": token.to_owned()})
 }

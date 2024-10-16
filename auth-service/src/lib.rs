@@ -1,12 +1,8 @@
 use app_state::AppState;
-use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, Router};
 use axum::serve::Serve;
-use axum::Json;
-use domain::error::AuthAPIError;
-use reqwest::StatusCode;
 use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
-use serde::{Deserialize, Serialize};
+use tonic::transport::Server;
 use std::io::Result;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -16,30 +12,6 @@ pub mod app_state;
 pub mod domain;
 pub mod routes;
 pub mod services;
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
-impl IntoResponse for AuthAPIError {
-    fn into_response(self) -> Response {
-        let (status, error_msg) = match self {
-            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
-            AuthAPIError::InvalidCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
-            AuthAPIError::UnexpectedError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
-            }
-            AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
-            AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
-            AuthAPIError::NotFound => (StatusCode::NOT_FOUND, "User is not found!"),
-        };
-        let body = Json(ErrorResponse {
-            error: error_msg.to_owned(),
-        });
-        (status, body).into_response()
-    }
-}
 
 pub struct Application {
     server: Serve<Router, Router>,
@@ -59,7 +31,10 @@ impl Application {
             .route("/delete-account", delete(delete_account))
             .with_state(app_state);
         let listener = TcpListener::bind(socket).await?;
-        let address = listener.local_addr()?; // why string?
+
+        let grpc = Server::builder().add_service(VerifyToken)
+
+        let address = listener.local_addr()?;
         let server = axum::serve(listener, router);
 
         Ok(Self { server, address })

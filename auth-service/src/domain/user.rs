@@ -10,6 +10,7 @@ pub enum UserError {
 pub struct User {
     email: Email,
     password: Password,
+    #[allow(dead_code)]
     requires_2fa: bool,
 }
 
