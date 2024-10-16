@@ -21,6 +21,7 @@ pub struct TestApp {
 }
 
 impl TestApp {
+    #[allow(dead_code)]
     async fn get<T: Serialize>(&self, url: &str, content: &T) -> reqwest::Response {
         self.http_client
             .get(url)
@@ -39,6 +40,7 @@ impl TestApp {
             .expect(&format!("Fail to post at url: {}", url))
     }
 
+    #[allow(dead_code)]
     async fn delete<T: Serialize>(&self, url: &str, content: &T) -> reqwest::Response {
         self.http_client
             .delete(url)
@@ -114,6 +116,7 @@ impl TestApp {
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn delete_account<T: Serialize>(&self, body: &T) -> reqwest::Response {
         self.delete(&format!("{}/delete-account", &self.address), body)
             .await

@@ -8,6 +8,7 @@ use axum::{
 };
 use domain::error::AuthAPIError;
 use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
+use tonic::transport::Server;
 use serde::{Deserialize, Serialize};
 use std::{io::Result, net::SocketAddr};
 use tokio::net::TcpListener;
