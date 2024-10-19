@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 #[tokio::main]
-async fn main() {
+pub async fn main() {
     // Use ip 0.0.0.0 so service can listen on all network interfaces
     // Required for Docker to work!
     // See: https://stackoverflow.com/questions/39525820/docker-port-forwarding-not-working

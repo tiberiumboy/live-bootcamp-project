@@ -12,9 +12,8 @@ implementations in your code base. This way, you can continue to refer to all of
 which would only address the REST implementation.
 */
 
-// Generated according to https://cloud.google.com/apis/design/standard_methods
-service VerifyTokenService {
-  rpc VerifyToken(VerifyTokenRequest) returns (VerifyTokenResponse);
+service ValidateToken {
+  rpc verify(VerifyTokenRequest) returns (VerifyTokenResponse);
 }
 
 message VerifyTokenRequest {

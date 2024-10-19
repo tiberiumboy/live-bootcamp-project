@@ -1,8 +1,7 @@
 use app_state::AppState;
 use axum::routing::{delete, get, post, Router};
 use axum::serve::Serve;
-use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
-use tonic::transport::Server;
+use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token, VerifyToken};
 use std::io::Result;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -32,7 +31,15 @@ impl Application {
             .with_state(app_state);
         let listener = TcpListener::bind(socket).await?;
 
-        let grpc = Server::builder().add_service(VerifyToken)
+        // let grpc = socket.clone();
+        // grpc.set_port(50051);
+
+        // let token = VerifyToken::default();
+        // // TODO: find a way to change the socket port to something else?
+        // let grpc = Server::builder()
+        //     .add_service(VerifyTokenServer::new(token))
+        //     .serve(grpc)
+        //     .await;
 
         let address = listener.local_addr()?;
         let server = axum::serve(listener, router);

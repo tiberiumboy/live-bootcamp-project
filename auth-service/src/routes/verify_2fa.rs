@@ -1,14 +1,13 @@
-use crate::routes::jwt::JWToken;
-use axum::{response::IntoResponse, Json};
+use axum::response::{IntoResponse, Json};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use reqwest::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use tonic::{transport::Server, Request, Response, Status };
+// pub mod validate_token {
+//     tonic::include_proto!("validate_token");
+// }
 
-tonic::include_proto!("verify_token_service");
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct VerifyToken {
     email: String,
@@ -29,12 +28,12 @@ impl VerifyToken {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct VerifyTokenResponse {
-
+    token: String,
 }
 
-pub async fn verify_2fa(Json(input): Json<VerifyToken>) -> impl IntoResponse {
+pub async fn verify_2fa(Json(input): Json<VerifyToken>) -> axum::response::Response {
     /*
         allowed exception list:
         400: Invalid Input
@@ -43,12 +42,13 @@ pub async fn verify_2fa(Json(input): Json<VerifyToken>) -> impl IntoResponse {
         500: Unexpected error (Should never happen)
     */
 
-    dbg!(&input);
     let secret_passphrase = "Let's get rusty";
     let key = EncodingKey::from_secret(secret_passphrase.as_ref());
-    let token = encode(&Header::default(), &input.email, &key);
+    let token = encode(&Header::default(), &input.email, &key).unwrap();
     // let token = JWToken::validate(input.email, &input.login_attempt_id, &input.code).unwrap();
     // dbg!(token);
-    let body = Json()
-    (StatusCode::OK.into_response(), Json({"token": token.to_owned()})
+    let body = VerifyTokenResponse { token };
+    // pray that this still works?
+    let content = serde_json::to_string(&body).unwrap();
+    (StatusCode::OK, content).into_response()
 }
