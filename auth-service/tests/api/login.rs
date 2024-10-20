@@ -1,5 +1,37 @@
 use crate::helpers::TestApp;
+use auth_service::utils::constants::JWT_COOKIE_NAME;
 use reqwest::StatusCode;
+
+#[tokio::test]
+pub async fn should_return_200_if_valid_cred_no_2fa() {
+    let app = TestApp::new().await;
+
+    let email = TestApp::get_random_email();
+
+    let signup = serde_json::json!({
+        "email":email,
+        "password":"Password123!",
+        "requires2FA": false
+    });
+
+    let response = app.post_signup(&signup).await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    let login = serde_json::json!({
+        "email": email,
+        "password":"Password123!"
+    });
+
+    let response = app.post_login(&login).await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let auth_cookie = response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect("No auth cookie found!");
+
+    assert!(!auth_cookie.value().is_empty());
+}
 
 #[tokio::test]
 pub async fn should_return_206() {

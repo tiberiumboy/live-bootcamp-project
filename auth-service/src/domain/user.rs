@@ -28,8 +28,8 @@ impl User {
         self.password.eq(password)
     }
 
-    pub fn get_email(&self) -> &Email {
-        &self.email
+    pub fn requires_2fa(&self) -> bool {
+        self.requires_2fa
     }
 }
 
