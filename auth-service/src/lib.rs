@@ -16,6 +16,7 @@ pub mod app_state;
 pub mod domain;
 pub mod routes;
 pub mod services;
+pub mod utils;
 
 #[derive(Serialize, Deserialize)]
 pub struct ErrorResponse {

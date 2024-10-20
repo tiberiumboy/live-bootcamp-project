@@ -11,12 +11,11 @@ pub struct HashmapUserStore {
 #[async_trait::async_trait]
 impl UserStore for HashmapUserStore {
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
-        let email = &user.as_ref();
+        let email = user.as_ref();
         if self.users.iter().any(|e| e.0.eq(email)) {
             return Err(UserStoreError::UserAlreadyExists);
         }
-        let email = user.get_email().to_owned();
-        self.users.insert(email, user);
+        self.users.insert(email.clone(), user);
         Ok(())
     }
 
@@ -32,12 +31,12 @@ impl UserStore for HashmapUserStore {
         &self,
         email: &Email,
         password: &Password,
-    ) -> Result<(), UserStoreError> {
+    ) -> Result<User, UserStoreError> {
         let user = self.get_user(email).await?;
         if user.password_match(&password) == false {
             return Err(UserStoreError::InvalidCredentials);
         }
-        Ok(())
+        Ok(user)
     }
 
     async fn delete_user(&mut self, user: User) {
