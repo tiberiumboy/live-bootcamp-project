@@ -1,5 +1,5 @@
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use reqwest::StatusCode;
 
 pub async fn logout() -> impl IntoResponse {
     println!("Logging out!");

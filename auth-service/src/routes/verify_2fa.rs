@@ -1,6 +1,6 @@
 use crate::routes::jwt::JWToken;
+use axum::http::StatusCode;
 use axum::{response::IntoResponse, Json};
-use reqwest::StatusCode;
 use serde::Deserialize;
 use uuid::Uuid;
 

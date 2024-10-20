@@ -1,5 +1,5 @@
+use axum::http::StatusCode;
 use axum::{extract::State, response::IntoResponse, Json};
-use reqwest::StatusCode;
 use serde::Deserialize;
 
 use crate::{
@@ -33,7 +33,7 @@ pub async fn login(
         Err(_) => return StatusCode::BAD_REQUEST,
     };
 
-    let store = state.user_store.write().await;
+    let store = state.user_store.read().await;
     match store.validate_user(&email, &password).await {
         Ok(_) => {
             // validates user with email & password -> UserStore()?

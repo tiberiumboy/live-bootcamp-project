@@ -64,3 +64,72 @@ async fn malformed_input_should_return_422() {
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
 }
+
+#[tokio::test]
+async fn invalid_input_should_return_400() {
+    let app = TestApp::new().await;
+
+    let test_case = [
+        serde_json::json!({
+            "email":"test.test.com",
+            "password":"Password123!"
+        }),
+        serde_json::json!({
+            "email":"test@test.com",
+            "password":"password123"
+        }),
+        serde_json::json!({
+            "email":"test@test.com",
+            "password":"password"
+        }),
+    ];
+
+    for test in test_case {
+        let response = &app.post_login(&test).await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+}
+
+#[tokio::test]
+async fn non_existing_user_should_return_401() {
+    let app = TestApp::new().await;
+
+    let email = "test@test.com";
+    let password = "Password123!";
+
+    let invalid_user = serde_json::json!({
+        "email": email,
+        "password": password,
+        "requires2FA": true,
+    });
+
+    let response = app.post_login(&invalid_user).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn unauthorize_user_should_return_401() {
+    let app = TestApp::new().await;
+
+    let email = "test@test.com";
+    let password = "Password123!";
+    let wrong_password = "password123!";
+
+    let user = serde_json::json!({
+        "email":email,
+        "password":password,
+        "requires2FA":true,
+    });
+
+    // we don't care. It shouldn't be possible to collide with another existing user?
+    let _ = app.post_signup(&user).await;
+
+    let invalid_user = serde_json::json!({
+        "email": email,
+        "password": wrong_password,
+        "requires2FA": true,
+    });
+
+    let response = app.post_login(&invalid_user).await;
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}

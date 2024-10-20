@@ -1,7 +1,5 @@
-use std::borrow::BorrowMut;
-
+use axum::http::StatusCode;
 use axum::{extract::State, response::IntoResponse, Json};
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;
