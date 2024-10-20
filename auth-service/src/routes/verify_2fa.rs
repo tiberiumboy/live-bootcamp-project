@@ -1,7 +1,7 @@
-use axum::response::{IntoResponse, Json};
-use jsonwebtoken::{encode, EncodingKey, Header};
-use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
+use crate::routes::jwt::JWToken;
+use axum::http::StatusCode;
+use axum::{response::IntoResponse, Json};
+use serde::Deserialize;
 use uuid::Uuid;
 // pub mod validate_token {
 //     tonic::include_proto!("validate_token");

@@ -12,8 +12,7 @@ pub struct ErrorResponse {
 
 pub enum AuthAPIError {
     UserAlreadyExists,
-    NotFound,
-    InvalidCredentials,
+    IncorrectCredentials,
     UnexpectedError,
     InvalidEmail,
     InvalidPassword,

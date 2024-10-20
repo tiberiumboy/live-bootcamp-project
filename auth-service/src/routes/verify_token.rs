@@ -1,10 +1,6 @@
 use crate::routes::jwt::JWToken;
 use axum::http::StatusCode;
 use axum::{response::IntoResponse, Json};
-// use jsonwebtoken::{encode, Algorithm, Validation};
-// use reqwest::StatusCode;
-// use tonic::{Request, Response, Status};
-// use validatetoken::{ValidateToken, VerifyTokenProto};
 
 // use super::VerifyTokenResponse;
 
