@@ -1,17 +1,16 @@
 use auth_service::{
-    app_state::AppState, services::hashmap_user_store::HashmapUserStore, Application,
+    app_state::AppState, services::hashmap_user_store::HashmapUserStore, utils::constants::test,
+    Application,
 };
-use reqwest::Client;
+use reqwest::{cookie::Jar, Client};
 use serde::Serialize;
-use std::{
-    net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::Arc,
-};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
+    pub cookie_jar: Arc<Jar>,
     pub http_client: Client,
 }
 
@@ -30,23 +29,25 @@ impl TestApp {
     }
 
     pub async fn new() -> Self {
-        let ip4 = IpAddr::V4(Ipv4Addr::LOCALHOST);
-        let socket = SocketAddr::new(ip4, 0);
-
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         let app_state = AppState::new(user_store);
 
-        let app = Application::build(app_state, socket)
+        let app = Application::build(app_state, test::APP_ADDR)
             .await
             .expect("Failed to build app");
         let address = format!("http://{}", app.address.clone());
 
         #[allow(clippy::let_underscore_future)]
         let _ = tokio::spawn(app.run());
-        let http_client = Client::new();
+        let cookie_jar = Arc::new(Jar::default());
+        let http_client = Client::builder()
+            .cookie_provider(cookie_jar.clone())
+            .build()
+            .unwrap();
 
         Self {
             address,
+            cookie_jar,
             http_client,
         }
     }
