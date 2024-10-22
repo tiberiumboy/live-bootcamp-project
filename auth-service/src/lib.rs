@@ -1,16 +1,17 @@
 use app_state::AppState;
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-use axum::routing::{delete, get, post, Router};
-use axum::serve::Serve;
-use axum::Json;
+use axum::{
+    http::{HeaderValue, Method, StatusCode},
+    response::{IntoResponse, Response},
+    routing::{delete, get, post, Router},
+    serve::Serve,
+    Json,
+};
 use domain::error::AuthAPIError;
 use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
 use serde::{Deserialize, Serialize};
-use std::io::Result;
-use std::net::SocketAddr;
+use std::{io::Result, net::SocketAddr};
 use tokio::net::TcpListener;
-use tower_http::services::ServeDir;
+use tower_http::{cors::CorsLayer, services::ServeDir};
 
 pub mod app_state;
 pub mod domain;
@@ -33,6 +34,8 @@ impl IntoResponse for AuthAPIError {
             }
             AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
             AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
+            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid JWT Token"),
+            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing JWT Toklen"),
         };
         let body = Json(ErrorResponse {
             error: error_msg.to_owned(),
@@ -48,6 +51,18 @@ pub struct Application {
 
 impl Application {
     pub async fn build(app_state: AppState, socket: SocketAddr) -> Result<Self> {
+        let allowed_origins = [
+            "http://localhost:8000".parse::<HeaderValue>().unwrap(),
+            "http://157.230.203.136:8000"
+                .parse::<HeaderValue>()
+                .unwrap(),
+        ];
+
+        let cors = CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST])
+            .allow_credentials(true)
+            .allow_origin(allowed_origins);
+
         let router = Router::new()
             .nest_service("/", ServeDir::new("assets"))
             .route("/hello", get(hello))
@@ -57,6 +72,7 @@ impl Application {
             .route("/verify-2fa", post(verify_2fa))
             .route("/verify-token", post(verify_token))
             .route("/delete-account", delete(delete_account))
+            .layer(cors)
             .with_state(app_state);
         let listener = TcpListener::bind(socket).await?;
 
