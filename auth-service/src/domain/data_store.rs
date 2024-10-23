@@ -17,4 +17,18 @@ pub trait UserStore: Send + Sync {
         email: &Email,
         password: &Password,
     ) -> Result<User, UserStoreError>;
+    // todo - impl delete user
+    // async fn delete_user(&mut self, email: Email ) -> Result<User, UserStoreError>;
+}
+
+#[derive(Debug, PartialEq)]
+pub enum BannedTokenStoreError {
+    TokenExist,
+    TokenDoNotExist,
+}
+
+#[async_trait::async_trait]
+pub trait BannedTokenStore: Send + Sync {
+    async fn add_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
+    async fn check_token(&self, token: &str) -> bool;
 }
