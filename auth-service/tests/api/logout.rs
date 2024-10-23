@@ -25,8 +25,13 @@ async fn valid_jwt_should_return_200() {
         .secure(true)
         .build();
     let app = build_test_app(&cookie).await;
-    let result = app.post_logout().await;
+    let result = &app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
+
+    // verify that the banned token have a new entry in the banned list.
+    let store = app.banned_store.read().await;
+    let result = store.check_token(&token.value()).await;
+    assert_eq!(result, true);
 }
 
 #[tokio::test]
