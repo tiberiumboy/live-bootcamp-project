@@ -2,6 +2,7 @@ use super::constants::{JWT_COOKIE_NAME, JWT_SECRET, TOKEN_TTL_SECONDS};
 use crate::domain::email::Email;
 
 use axum_extra::extract::cookie::{Cookie, SameSite};
+use chrono::Duration;
 use chrono::Utc;
 use jsonwebtoken::{
     decode, encode, errors::Error as JWTError, DecodingKey, EncodingKey, Validation,
@@ -9,7 +10,7 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Claim {
+pub struct Claims {
     pub sub: String,
     pub exp: usize,
 }
@@ -20,7 +21,7 @@ pub enum GenerateTokenError {
     UnexpectedError,
 }
 
-fn create_token(claim: &Claim) -> Result<String, JWTError> {
+fn create_token(claim: Claims) -> Result<String, JWTError> {
     encode(
         &jsonwebtoken::Header::default(),
         &claim,
@@ -28,9 +29,17 @@ fn create_token(claim: &Claim) -> Result<String, JWTError> {
     )
 }
 
-fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
-    let delta = chrono::Duration::try_seconds(TOKEN_TTL_SECONDS)
-        .ok_or(GenerateTokenError::UnexpectedError)?;
+fn create_auth_cookie(token: String) -> Cookie<'static> {
+    Cookie::build((JWT_COOKIE_NAME, token))
+        .path("/") // apply cookie to all URLs on the server
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .build()
+}
+
+pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
+    let delta =
+        Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
 
     let exp = Utc::now()
         .checked_add_signed(delta)
@@ -42,19 +51,9 @@ fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
         .map_err(|_| GenerateTokenError::UnexpectedError)?;
 
     let sub = email.as_ref().to_owned();
-    let claims = Claim { sub, exp };
+    let claims = Claims { sub, exp };
 
-    create_token(&claims).map_err(GenerateTokenError::TokenError)
-}
-
-fn create_auth_cookie(token: String) -> Cookie<'static> {
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token))
-        .path("/") // apply cookie to all URLs on the server
-        .http_only(true)
-        .same_site(SameSite::Lax)
-        .build();
-
-    cookie
+    create_token(claims).map_err(GenerateTokenError::TokenError)
 }
 
 pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
@@ -62,8 +61,8 @@ pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTo
     Ok(create_auth_cookie(token))
 }
 
-pub async fn validate_token(token: &str) -> Result<Claim, JWTError> {
-    decode::<Claim>(
+pub async fn validate_token(token: &str) -> Result<Claims, JWTError> {
+    decode::<Claims>(
         token,
         &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
         &Validation::default(),

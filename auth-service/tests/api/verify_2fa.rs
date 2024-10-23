@@ -1,17 +1,15 @@
 use crate::helpers::TestApp;
+use auth_service::domain::email::Email;
 use reqwest::StatusCode;
 
 #[tokio::test]
 async fn verify_2fa_should_pass() {
     // we need to provide a invalid data input somehow?
     let app = TestApp::new().await;
-    // let email = "test@test.com".to_owned();
-    // let code = "1234".to_owned();
-    // let token = VerifyToken::new(email, code);
-
+    let email = Email::parse("test@test.com").expect("Unable to parse dummy email for unit test!");
     let context = serde_json::json!({
-        "email":"test@test.com",
-        "loginAttemptId":"",
+        "email": email.as_ref(),
+        "loginAttemptId": "",
         "2FACode": "0000"
     });
 
