@@ -14,23 +14,34 @@ async fn build_test_app<'a>(cookie: &Cookie<'a>) -> TestApp {
     app
 }
 
+fn get_fake_email() -> Email {
+    Email::parse("test@test.com").expect("Unable to parse test email account!")
+}
+
+fn get_token() -> String {
+    let email = get_fake_email();
+    let cookie = generate_auth_cookie(&email).expect("Unable to generate dummy token to test!");
+    cookie.value().to_owned()
+}
+
 #[tokio::test]
 async fn valid_jwt_should_return_200() {
-    let email = Email::parse("test@test.com").expect("Unable to parse test email account!");
-    let token = generate_auth_cookie(&email).expect("Unable to generate dummy token to test");
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token.value()))
+    let token = get_token();
+
+    let cookie = Cookie::build((JWT_COOKIE_NAME, &token))
         .path("/")
         .same_site(SameSite::Lax)
-        .http_only(true)
-        .secure(true)
+        // .http_only(true)
+        // .secure(true)
         .build();
+
     let app = build_test_app(&cookie).await;
     let result = &app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
     // verify that the banned token have a new entry in the banned list.
     let store = app.banned_store.read().await;
-    let result = store.check_token(&token.value()).await;
+    let result = store.check_token(&token).await;
     assert_eq!(result, true);
 }
 
@@ -45,9 +56,8 @@ async fn missing_jwt_should_return_400() {
 async fn logout_twice_should_return_400() {
     // log in and verify that first.
     // then log out again.
-    let email = Email::parse("test@test.com").expect("Unable to parse test email account!");
-    let token = generate_auth_cookie(&email).expect("Unable to generate dummy token to test");
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token.value()))
+    let token = get_token();
+    let cookie = Cookie::build((JWT_COOKIE_NAME, token))
         .path("/")
         .same_site(SameSite::Lax)
         .http_only(true)
@@ -75,8 +85,27 @@ async fn invalid_jwt_should_return_401() {
 }
 
 #[tokio::test]
+async fn banned_token_should_return_401() {
+    let token = get_token();
+    let cookie = Cookie::build((JWT_COOKIE_NAME, &token))
+        .path("/")
+        .same_site(SameSite::Lax)
+        .secure(true)
+        .http_only(true)
+        .build();
+    let app = build_test_app(&cookie).await;
+
+    let store = app.banned_store.clone();
+    let mut ban_list = store.write().await;
+    let _ = ban_list.add_token(&token).await;
+
+    let result = app.post_logout().await;
+    assert_eq!(result.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn ensure_cookie_is_clear_after_success_logout() {
-    let email = Email::parse("test@test.com").expect("Unable to parse test email account!");
+    let email = get_fake_email();
     let token = generate_auth_cookie(&email).expect("Unable to generate dummy token to test");
     let cookie = Cookie::build((JWT_COOKIE_NAME, token.value()))
         .path("/")
