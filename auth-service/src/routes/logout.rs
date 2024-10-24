@@ -14,21 +14,22 @@ pub async fn logout(
     jar: CookieJar,
 ) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
     // if the cookie is missing return 400
+
     let jar_clone = jar.clone();
-    let cookie = match jar_clone.get(JWT_COOKIE_NAME) {
+    let cookie = match &jar.get(JWT_COOKIE_NAME) {
         Some(cookie) => cookie.value(),
-        None => return (jar, Err(AuthAPIError::MissingToken)),
+        None => return (jar_clone, Err(AuthAPIError::MissingToken)),
     };
 
     // remove JWT cookie and add to ban list
-    let jar = jar.remove(Cookie::from(JWT_COOKIE_NAME));
+    let jar_clone = jar_clone.remove(Cookie::from(JWT_COOKIE_NAME));
     let mut ban_list = state.banned_token_store.write().await;
     let _ = ban_list.add_token(cookie).await;
 
     // if the cookie contains invalid JWT return 401
     // else if succeed - return 200
     match validate_token(cookie).await {
-        Ok(_) => (jar, Ok(StatusCode::OK.into_response())),
-        Err(_) => (jar, Err(AuthAPIError::InvalidToken)),
+        Ok(_) => (jar_clone, Ok(StatusCode::OK.into_response())),
+        Err(_) => (jar_clone, Err(AuthAPIError::InvalidToken)),
     }
 }
