@@ -74,7 +74,7 @@ impl Application {
             .with_state(app_state)
             .layer(cors);
         let listener = TcpListener::bind(socket).await?;
-        let address = listener.local_addr()?; // why string?
+        let address = listener.local_addr()?;
         let server = axum::serve(listener, router);
 
         Ok(Self { server, address })

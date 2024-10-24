@@ -9,7 +9,7 @@ use auth_service::{
 };
 use reqwest::{cookie::Jar, Client};
 use serde::Serialize;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -38,6 +38,7 @@ impl TestApp {
         let banned_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
         let app_state = AppState::new(user_store, banned_store.clone());
+        let duration = Duration::from_secs(2);
 
         let app = Application::build(app_state, test::APP_ADDR)
             .await
@@ -49,6 +50,7 @@ impl TestApp {
         let cookie_jar = Arc::new(Jar::default());
         let http_client = Client::builder()
             .cookie_provider(cookie_jar.clone())
+            .timeout(duration)
             .build()
             .unwrap();
 
