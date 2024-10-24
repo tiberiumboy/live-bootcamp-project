@@ -40,8 +40,8 @@ async fn valid_jwt_should_return_200() {
     assert_eq!(result.status(), StatusCode::OK);
 
     // verify that the banned token have a new entry in the banned list.
-    let store = app.banned_store.read().await;
-    let result = store.check_token(&token).await;
+    let store = app.banned_store.clone();
+    let result = store.read().await.check_token(&token).await;
     assert_eq!(result, true);
 }
 
