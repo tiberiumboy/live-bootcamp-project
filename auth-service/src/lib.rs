@@ -8,7 +8,6 @@ use axum::{
 };
 use domain::error::AuthAPIError;
 use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
-use tonic::transport::Server;
 use serde::{Deserialize, Serialize};
 use std::{io::Result, net::SocketAddr};
 use tokio::net::TcpListener;
@@ -19,31 +18,6 @@ pub mod domain;
 pub mod routes;
 pub mod services;
 pub mod utils;
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
-impl IntoResponse for AuthAPIError {
-    fn into_response(self) -> Response {
-        let (status, error_msg) = match self {
-            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
-            AuthAPIError::IncorrectCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
-            AuthAPIError::UnexpectedError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
-            }
-            AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
-            AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
-            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid JWT Token"),
-            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing JWT Toklen"),
-        };
-        let body = Json(ErrorResponse {
-            error: error_msg.to_owned(),
-        });
-        (status, body).into_response()
-    }
-}
 
 pub struct Application {
     server: Serve<Router, Router>,

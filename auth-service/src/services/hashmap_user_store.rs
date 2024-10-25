@@ -39,9 +39,8 @@ impl UserStore for HashmapUserStore {
         Ok(user)
     }
 
-    async fn delete_user(&mut self, user: User) {
-        let email: &Email = user.as_ref();
-        self.users.retain(|k, _| !k.eq(email));
+    async fn delete_user(&mut self, email: &Email) -> Result<(), UserStoreError> {
+        Ok(self.users.retain(|k, _| !k.eq(email)))
     }
 }
 

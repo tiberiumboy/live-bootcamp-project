@@ -4,8 +4,7 @@
     If user should be able to delete an account they created, where and how should this option be present?
 */
 
-use axum::{extract::State, response::IntoResponse, Json};
-use reqwest::StatusCode;
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::Deserialize;
 
 use crate::{
@@ -25,14 +24,7 @@ pub async fn delete_account(
     // TODO: verify through JWT to ensure current active user can delete accounts.
     // first find the email account associated with the user.
     let email = Email::parse(&request.email).map_err(|_| return AuthAPIError::InvalidEmail)?;
-
     let mut store = state.user_store.write().await;
-
-    let user = store
-        .get_user(&email)
-        .await
-        .map_err(|_| return AuthAPIError::NotFound)?;
-
-    store.delete_user(user).await;
+    let _ = store.delete_user(&email).await;
     Ok(StatusCode::OK.into_response())
 }

@@ -17,7 +17,7 @@ pub trait UserStore: Send + Sync {
         email: &Email,
         password: &Password,
     ) -> Result<User, UserStoreError>;
-    async fn delete_user(&mut self, email: Email ) -> Result<User, UserStoreError>;
+    async fn delete_user(&mut self, email: &Email) -> Result<(), UserStoreError>;
 }
 
 #[derive(Debug, PartialEq)]
