@@ -1,14 +1,10 @@
 use app_state::AppState;
 use axum::{
-    http::{HeaderValue, Method, StatusCode},
-    response::{IntoResponse, Response},
+    http::{HeaderValue, Method},
     routing::{delete, get, post, Router},
     serve::Serve,
-    Json,
 };
-use domain::error::AuthAPIError;
 use routes::{delete_account, hello, login, logout, signup, verify_2fa, verify_token};
-use serde::{Deserialize, Serialize};
 use std::{io::Result, net::SocketAddr};
 use tokio::net::TcpListener;
 use tower_http::{cors::CorsLayer, services::ServeDir};
