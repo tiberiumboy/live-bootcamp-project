@@ -17,7 +17,6 @@ axum-extra = { version = "^0", features = ["cookie", "typed-header"] }
 chrono = "0.4.38"
 dotenvy = "0.15.7"
 jsonwebtoken = "9.3.0"
-lazy_static = "1.5.0"
 # needed to run on docker properly
 openssl = { version = "^0", features = ["vendored"] }
 thiserror = "1.0.64"
