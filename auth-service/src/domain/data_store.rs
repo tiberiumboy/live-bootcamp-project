@@ -1,4 +1,7 @@
-use super::{email::Email, password::Password, user::User};
+use super::{
+    email::Email, login_attempt_id::LoginAttemptId, password::Password, two_fa_code::TwoFACode,
+    user::User,
+};
 
 #[derive(Debug, PartialEq)]
 pub enum UserStoreError {
@@ -31,4 +34,25 @@ pub enum BannedTokenStoreError {
 pub trait BannedTokenStore: Send + Sync {
     async fn add_token(&mut self, token: &str) -> Result<(), BannedTokenStoreError>;
     async fn check_token(&self, token: &str) -> bool;
+}
+
+#[derive(Debug)]
+pub enum TwoFACodeStoreError {
+    LoginAttemptIdNotFound,
+    UnexpectedError, // should never happen...?
+}
+
+#[async_trait::async_trait]
+pub trait TwoFACodeStore: Send + Sync {
+    async fn add_code(
+        &mut self,
+        email: Email,
+        id: LoginAttemptId,
+        code: TwoFACode,
+    ) -> Result<(), TwoFACodeStoreError>;
+    async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError>;
+    async fn get_code(
+        &self,
+        email: &Email,
+    ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
 }
