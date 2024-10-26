@@ -80,13 +80,34 @@ async fn handle_2fa(
     let code = TwoFACode::default();
 
     let mut two_fa_store = state.two_fa_code_store.write().await;
-    // I wouldn't expect this to fail?
-    if let Err(e) = two_fa_store.add_code(email.clone(), id.clone(), code).await {
-        dbg!(e); // I'm curious what this could possibly fail?
+    if let Err(_) = two_fa_store
+        .add_code(email.clone(), id.clone(), code.clone())
+        .await
+    {
+        // Need to discuss about this implementation -
+        /*
+           Currently theres nothing here that can stop us from updating existing value in our data store.
+           If we tried to add a new entry with existing email account, the databse will simply update the original value, returning as an error message...?
+           Also, currently, there's no implementation to clear the database of stored/temp values? E.g. Banned token have expiration date, but banned token store will keep that record forever.
+        */
         return (jar, Err(AuthAPIError::UnexpectedError));
     }
 
     // TODO: impl services that sends 2FA code to user's email
+    let body = format!(
+        "Please use this code to log into the website: {}",
+        code.as_ref()
+    );
+    if state
+        .email_client
+        .read()
+        .await
+        .send_email(email, "Let's Get Rusty 2FA Code", &body)
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
 
     let response = TwoFactorAuthResponse {
         message: "2FA required".to_owned(),

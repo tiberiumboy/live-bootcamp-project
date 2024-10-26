@@ -21,7 +21,7 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
         code: TwoFACode,
     ) -> Result<(), TwoFACodeStoreError> {
         match self.codes.insert(email, (id, code)) {
-            // if we received some, it means the key already exist instead, it updates the hashmap table
+            // if we received some, it means the key already exist instead, it updates the hashmap table, returning the old value back...
             // TODO: Discuss whether we need to handle this specific type of update or not?
             Some(_) => Err(TwoFACodeStoreError::UnexpectedError),
             None => Ok(()),
