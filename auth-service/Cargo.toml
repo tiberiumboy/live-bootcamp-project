@@ -9,6 +9,7 @@ reqwest = { version = "^0", default-features = false, features = [
     "json",
     "cookies",
 ] }
+rstest = "0.23.0"
 
 [dependencies]
 async-trait = "0.1.83"

@@ -1,7 +1,7 @@
 use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TwoFACode(String);
 
 impl TwoFACode {
@@ -12,7 +12,7 @@ impl TwoFACode {
         }
 
         // Validate string input must be numeric only
-        if code.parse::<u32>().is_err() {
+        if code.chars().any(|v| !v.is_ascii_digit()) {
             return Err("Code contains non-digit value!".to_owned());
         }
 
@@ -42,6 +42,7 @@ impl AsRef<str> for TwoFACode {
 #[cfg(test)]
 mod tests {
     use super::TwoFACode;
+    use rstest::*;
 
     #[test]
     fn parse_should_pass() {
@@ -59,13 +60,64 @@ mod tests {
     }
 
     #[test]
+    fn empty_string_should_fail() {
+        let response = TwoFACode::parse("".to_owned());
+        assert!(response.is_err());
+    }
+
+    #[test]
+    fn string_contains_ascii_char_should_fail() {
+        let response = TwoFACode::parse("12345A".to_owned());
+        assert!(response.is_err());
+    }
+
+    #[rstest]
+    #[case("12345A")]
+    #[case("1234A6")]
+    #[case("123A56")]
+    #[case("12A456")]
+    #[case("1A3456")]
+    #[case("A23456")]
+    #[test]
+    fn string_contains_numeric_should_fail(#[case] code: &str) {
+        let response = TwoFACode::parse(code.to_owned());
+        assert!(response.is_err());
+    }
+
+    #[rstest]
+    #[case(" 12345")]
+    #[case("1 2345")]
+    #[case("12 345")]
+    #[case("123 45")]
+    #[case("1234 5")]
+    #[case("12345 ")]
+    #[test]
+    fn string_contains_space_should_fail(#[case] code: &str) {
+        let response = TwoFACode::parse(code.to_owned());
+        assert!(response.is_err());
+    }
+
+    #[rstest]
+    #[case("1")]
+    #[case("12")]
+    #[case("123")]
+    #[case("1234")]
+    #[case("12345")]
+    #[case("1234567")]
+    #[case("12345678")]
+    #[case("123456789")]
+    fn code_not_six_characters_limit_should_fail(#[case] code: &str) {
+        let response = TwoFACode::parse(code.to_owned());
+        assert!(response.is_err());
+    }
+
+    #[test]
     fn invalid_input_should_fail() {
         let test_case = [
             "12345",   // not exactly 6 character long
             "12345A",  // contains ascii char
             "AAAAAA",  // non-numeric value
             "1234567", // exceeding character limit
-            "",        // empty
             "123456 ", // contians space
             "12345 ",  // 6 characters long, but contians invalid non-numeric character
         ];

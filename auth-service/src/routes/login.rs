@@ -42,22 +42,14 @@ pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(login): Json<LoginRequest>,
-) -> (CookieJar, Result<impl IntoResponse, AuthAPIError>) {
-    let email = match Email::parse(&login.email) {
-        Ok(email) => email,
-        Err(_) => return (jar, Ok(StatusCode::BAD_REQUEST.into_response())),
-    };
-
-    let password = match Password::parse(&login.password) {
-        Ok(pwd) => pwd,
-        Err(_) => return (jar, Ok(StatusCode::BAD_REQUEST.into_response())),
-    };
-
+) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
+    let email = Email::parse(&login.email).map_err(|_| AuthAPIError::InvalidEmail)?;
+    let password = Password::parse(&login.password).map_err(|_| AuthAPIError::InvalidPassword)?;
     let store = state.user_store.read().await;
-    let user = match store.validate_user(&email, &password).await {
-        Ok(user) => user,
-        Err(_) => return (jar, Ok(StatusCode::UNAUTHORIZED.into_response())),
-    };
+    let user = store
+        .validate_user(&email, &password)
+        .await
+        .map_err(|_| AuthAPIError::IncorrectCredentials)?;
 
     let result = match user.requires_2fa() {
         true => handle_2fa(&user.as_ref(), &state, jar).await,
@@ -65,7 +57,7 @@ pub async fn login(
     };
 
     // a little hack to get this working. I'm sure there's a reason behind it?
-    (result.0, Ok(result.1.into_response()))
+    Ok((result.0, result.1.into_response()))
 }
 
 async fn handle_2fa(
