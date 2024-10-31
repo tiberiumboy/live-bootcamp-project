@@ -32,10 +32,13 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::UnexpectedError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }
+            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid JWT Token"),
             AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
             AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
-            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid JWT Token"),
-            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing JWT Toklen"),
+            AuthAPIError::InvalidLoginId => (StatusCode::BAD_REQUEST, "Invalid Login ID"),
+            AuthAPIError::Invalid2FACode => (StatusCode::BAD_REQUEST, "Invalid 2FA Code"),
+            AuthAPIError::MismatchIdentification => (StatusCode::UNAUTHORIZED, "Mismatch identity"),
+            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing JWT Token"),
         };
         let body = Json(ErrorResponse {
             error: error_msg.to_owned(),

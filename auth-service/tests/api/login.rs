@@ -1,5 +1,7 @@
 use crate::helpers::TestApp;
-use auth_service::utils::constants::JWT_COOKIE_NAME;
+use auth_service::{
+    domain::email::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME,
+};
 use reqwest::StatusCode;
 
 #[tokio::test]
@@ -34,13 +36,14 @@ pub async fn should_return_200_if_valid_cred_no_2fa() {
 }
 
 #[tokio::test]
-pub async fn should_return_206() {
+pub async fn should_return_206_if_valid_cred_with_2fa() {
     let app = TestApp::new().await;
-
+    // TODO: use faker lib to generate fake email
+    let email = Email::parse("test@test.com").expect("Unable to parse dummy email account");
     // first, create a test account.
     let body = serde_json::json!({
-        "email":"test@test.com",
-        "password":"password123!",
+        "email":email.as_ref(),
+        "password":"Password123!",
         "requires2FA": true
     });
     let new_account = app.post_signup(&body).await;
@@ -48,13 +51,25 @@ pub async fn should_return_206() {
 
     // then, log into test account
     let test = serde_json::json!({
-        "email":"test@test.com",
-        "password":"password123!"
+        "email":email.as_ref(),
+        "password":"Password123!"
     });
 
     // check for result
     let result = app.post_login(&test).await;
     assert_eq!(result.status(), StatusCode::PARTIAL_CONTENT);
+    let body = result
+        .json::<TwoFactorAuthResponse>()
+        .await
+        .expect("Should receive a Login response!");
+
+    let two_fa_code_store = &app.two_fa_code_store.read().await;
+    let code = two_fa_code_store
+        .get_code(&email)
+        .await
+        .expect("Could not find entry in twoFACodeStore db!");
+
+    assert_eq!(body.login_attempt_id, code.0.as_ref());
 }
 
 #[tokio::test]
@@ -165,3 +180,5 @@ async fn unauthorize_user_should_return_401() {
     let response = app.post_login(&invalid_user).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
+
+// TODO: impl unit test for login with Two FA code.

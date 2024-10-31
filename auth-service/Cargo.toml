@@ -9,21 +9,22 @@ reqwest = { version = "^0", default-features = false, features = [
     "json",
     "cookies",
 ] }
+rstest = "0.23.0"
 
 [dependencies]
-axum-extra = { version = "^0", features = ["cookie", "typed-header"] }
-axum = "^0"
-serde = { version = "^1", features = ["derive"] }
-serde_json = "^1"
-tokio = { version = "^1", features = ["full"] }
-tower-http = { version = "^0", features = ["fs", "cors"] }
-uuid = { version = "^1", features = ["v4", "serde"] }
-# needed to run on docker properly
-openssl = { version = "^0", features = ["vendored"] }
 async-trait = "0.1.83"
-regex = "1.11.0"
-jsonwebtoken = "9.3.0"
+axum = "^0"
+axum-extra = { version = "^0", features = ["cookie", "typed-header"] }
 chrono = "0.4.38"
 dotenvy = "0.15.7"
-lazy_static = "1.5.0"
+jsonwebtoken = "9.3.0"
+# needed to run on docker properly
+openssl = { version = "^0", features = ["vendored"] }
 thiserror = "1.0.64"
+tokio = { version = "^1", features = ["full"] }
+tower-http = { version = "^0", features = ["fs", "cors"] }
+serde = { version = "^1", features = ["derive"] }
+serde_json = "^1"
+regex = "1.11.0"
+rand = "0.8.5"
+uuid = { version = "^1", features = ["v4", "serde"] }

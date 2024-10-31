@@ -16,4 +16,10 @@ pub enum AuthAPIError {
     MissingToken, // no token was provided
     #[error("Oh look here, someone forging JWT. This incident will be logged and reported")]
     InvalidToken, // invalid JWT token was used
+    #[error("Invalid login id")]
+    InvalidLoginId,
+    #[error("Invalid 2FA Code")]
+    Invalid2FACode,
+    #[error("Mismatch identification")]
+    MismatchIdentification,
 }
