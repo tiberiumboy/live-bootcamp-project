@@ -1,5 +1,5 @@
 # Start with image that has the Rust toolchain installed
-FROM rust:1.77-alpine AS chef
+FROM rust:1.82.0-alpine AS chef
 USER root
 # Add cargo-chef to cache dependencies
 RUN apk add --no-cache clang lld git perl openssl-libs-static pkgconf openssl-dev musl-dev make & cargo install cargo-chef

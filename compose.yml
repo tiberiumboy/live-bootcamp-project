@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   app-service:
     image: skibur/app-service # specify name of image on Docker Hub
