@@ -3,7 +3,7 @@ use reqwest::StatusCode;
 
 #[tokio::test]
 pub async fn should_return_201_if_valid_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
 
     let test_case = serde_json::json!(
         {
@@ -15,7 +15,7 @@ pub async fn should_return_201_if_valid_input() {
 
     let result = app.post_signup(&test_case).await;
     assert_eq!(result.status(), StatusCode::CREATED);
-    // then how do we go about deleting that sign in user?
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -23,7 +23,7 @@ pub async fn should_return_400_if_invalid_input() {
     // the input is considered invalid if :
     // - the email is empty or does not contain '@'
     // - the password is less than 8 characters
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = TestApp::get_random_email();
 
     let test_cases = [
@@ -51,11 +51,13 @@ pub async fn should_return_400_if_invalid_input() {
         let response = app.post_signup(&test).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
 pub async fn should_return_409_if_email_already_exists() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = TestApp::get_random_email();
     let random_password = TestApp::get_random_email();
 
@@ -72,11 +74,12 @@ pub async fn should_return_409_if_email_already_exists() {
     // then if we try to insert the user again we should get 409 error code
     let response = app.post_signup(&user).await;
     assert_eq!(response.status(), StatusCode::CONFLICT);
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let random_email = TestApp::get_random_email();
 
     let test_cases = [
@@ -98,6 +101,8 @@ async fn should_return_422_if_malformed_input() {
         let response = app.post_signup(&test).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
+
+    app.clean_up().await;
 }
 
 // not sure how we can check for error code 500 since that's a server side issue not a software issue...?

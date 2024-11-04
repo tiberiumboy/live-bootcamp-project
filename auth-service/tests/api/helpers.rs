@@ -14,8 +14,11 @@ use auth_service::{
 };
 use reqwest::{cookie::Jar, Client};
 use serde::Serialize;
-use sqlx::{postgres::PgPoolOptions, Executor, PgPool};
-use std::{sync::Arc, time::Duration};
+use sqlx::{
+    postgres::{PgConnectOptions, PgPoolOptions},
+    Connection, Executor, PgConnection, PgPool,
+};
+use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -25,6 +28,8 @@ pub struct TestApp {
     pub http_client: Client,
     pub banned_store: Arc<RwLock<dyn BannedTokenStore>>,
     pub two_fa_code_store: Arc<RwLock<dyn TwoFACodeStore>>,
+    db_name: String,
+    clean_up_called: bool,
 }
 
 impl TestApp {
@@ -63,7 +68,7 @@ impl TestApp {
         db_conn_str
     }
 
-    async fn configure_postgresql() -> PgPool {
+    async fn configure_postgresql() -> (PgPool, String) {
         let postgresql_conn_url = DATABASE_URL.to_owned();
 
         let db_name = Uuid::new_v4().to_string();
@@ -72,9 +77,37 @@ impl TestApp {
             Self::configure_database(&postgresql_conn_url, &db_name).await;
 
         // Create a new connection pool and return it
-        Application::get_postgres_pool(&postgresql_conn_url_with_db)
+        (
+            Application::get_postgres_pool(&postgresql_conn_url_with_db)
+                .await
+                .expect("Failed to create Postgres connection pool!"),
+            db_name,
+        )
+    }
+
+    async fn delete_database(db_name: &str) {
+        let pgsql_conn_str = DATABASE_URL.to_owned();
+
+        let conn_options = PgConnectOptions::from_str(&pgsql_conn_str)
+            .expect("Failed to parse PostgreSQL connection string");
+
+        let mut connection = PgConnection::connect_with(&conn_options)
             .await
-            .expect("Failed to create Postgres connection pool!")
+            .expect("Fail to connect to PostgreSQL");
+
+        // kill any active connections
+        connection.execute(format!(r#"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{}' AND pid <> pg_backend_pid();"#, db_name).as_str()).await.expect("Failed to drop the database connections.");
+
+        // drop database
+        connection
+            .execute(format!(r#"DROP DATABASE "{}";"#, db_name).as_str())
+            .await
+            .expect("Failed to drop the database.");
+    }
+
+    pub async fn clean_up(&mut self) {
+        TestApp::delete_database(&self.db_name).await;
+        self.clean_up_called = true;
     }
 
     pub fn get_random_email() -> String {
@@ -82,7 +115,7 @@ impl TestApp {
     }
 
     pub async fn new() -> Self {
-        let pg_pool = Self::configure_postgresql().await;
+        let (pg_pool, db_name) = Self::configure_postgresql().await;
         let banned_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
@@ -115,6 +148,8 @@ impl TestApp {
             http_client,
             banned_store,
             two_fa_code_store,
+            db_name,
+            clean_up_called: false,
         }
     }
 
@@ -150,5 +185,14 @@ impl TestApp {
     pub async fn post_verify_token<T: Serialize>(&self, body: &T) -> reqwest::Response {
         self.post(&format!("{}/verify-token", &self.address), body)
             .await
+    }
+}
+
+impl Drop for TestApp {
+    fn drop(&mut self) {
+        if !self.clean_up_called {
+            // TODO: Wish I could just call the cleanup function here but it's async... Shrug?
+            panic!("Database was not clean up!");
+        }
     }
 }
