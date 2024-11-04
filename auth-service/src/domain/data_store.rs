@@ -6,7 +6,7 @@ use super::{
 #[derive(Debug, PartialEq)]
 pub enum UserStoreError {
     UserAlreadyExists,
-    UesrNotFound,
+    UserNotFound,
     InvalidCredentials,
     UnexpectedError,
 }
@@ -20,8 +20,7 @@ pub trait UserStore: Send + Sync {
         email: &Email,
         password: &Password,
     ) -> Result<User, UserStoreError>;
-    // todo - impl delete user
-    // async fn delete_user(&mut self, email: Email ) -> Result<User, UserStoreError>;
+    async fn delete_user(&mut self, email: Email) -> Result<(), UserStoreError>;
 }
 
 #[derive(Debug, PartialEq)]

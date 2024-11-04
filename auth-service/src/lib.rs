@@ -9,7 +9,9 @@ use axum::{
 use domain::error::AuthAPIError;
 use routes::{hello, login, logout, signup, verify_2fa, verify_token};
 use serde::{Deserialize, Serialize};
-use std::{io::Result, net::SocketAddr};
+use sqlx::{postgres::PgPoolOptions, PgPool};
+use std::io;
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tower_http::{cors::CorsLayer, services::ServeDir};
 
@@ -53,7 +55,8 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(app_state: AppState, socket: SocketAddr) -> Result<Self> {
+    pub async fn build(app_state: AppState, socket: SocketAddr) -> Result<Self, io::Error> {
+        // TODO: Find a way to make this dynamic instead of hardcoded. - See Sidequest
         let allowed_origins = [
             "http://localhost:8000".parse::<HeaderValue>().unwrap(),
             "http://157.230.203.136:8000"
@@ -76,6 +79,7 @@ impl Application {
             .route("/verify-token", post(verify_token))
             .with_state(app_state)
             .layer(cors);
+
         let listener = TcpListener::bind(socket).await?;
         let address = listener.local_addr()?;
         let server = axum::serve(listener, router);
@@ -83,7 +87,11 @@ impl Application {
         Ok(Self { server, address })
     }
 
-    pub async fn run(self) -> Result<()> {
+    pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
+        PgPoolOptions::new().max_connections(5).connect(url).await
+    }
+
+    pub async fn run(self) -> Result<(), io::Error> {
         println!("Listening on {}", &self.address);
         self.server.await
     }

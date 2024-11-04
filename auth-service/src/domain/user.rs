@@ -6,14 +6,34 @@ pub enum UserError {
     InvalidPassword,
 }
 
+// #[derive(Debug, Clone, Default)]
+// pub enum UserRole {
+//     #[default]
+//     None = 0,
+//     Guest = 1,
+//     Member = 2,
+//     Admin = 3,
+// }
+
 #[derive(Debug, Clone)]
 pub struct User {
     email: Email,
     password: Password,
     requires_2fa: bool,
+    // user_role: UserRole,
 }
 
 impl User {
+    // TODO: Talk about this?
+    pub(crate) fn new(email: Email, password: Password, requires_2fa: bool) -> Self {
+        Self {
+            email,
+            password,
+            requires_2fa,
+            // user_role: UserRole::default(),
+        }
+    }
+
     pub fn parse(email: &str, password: &str, requires_2fa: bool) -> Result<User, UserError> {
         let email = Email::parse(email)?;
         let password = Password::parse(password)?;
@@ -21,6 +41,7 @@ impl User {
             email,
             password,
             requires_2fa,
+            // user_role: UserRole::default(),
         })
     }
 

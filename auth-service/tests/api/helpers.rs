@@ -2,14 +2,19 @@ use auth_service::{
     app_state::AppState,
     domain::data_store::{BannedTokenStore, TwoFACodeStore},
     services::{
-        hashmap_two_fa_code_store::HashmapTwoFACodeStore, hashmap_user_store::HashmapUserStore,
-        hashset_banned_token_store::HashsetBannedTokenStore, mock_email_client::MockEmailClient,
+        data_stores::{
+            hashmap_two_fa_code_store::HashmapTwoFACodeStore,
+            hashset_banned_token_store::HashsetBannedTokenStore,
+            postgres_user_store::PostgresUserStore,
+        },
+        mock_email_client::MockEmailClient,
     },
-    utils::constants::test,
+    utils::constants::{test, DATABASE_URL},
     Application,
 };
 use reqwest::{cookie::Jar, Client};
 use serde::Serialize;
+use sqlx::{postgres::PgPoolOptions, Executor, PgPool};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use uuid::Uuid;
@@ -32,13 +37,54 @@ impl TestApp {
             .expect(&format!("Fail to post at url: {}", url))
     }
 
+    async fn configure_database(db_conn_str: &str, db_name: &str) -> String {
+        let connection = PgPoolOptions::new()
+            .connect(db_conn_str)
+            .await
+            .expect("Fail to create Postgres connection pool.");
+
+        connection
+            .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+            .await
+            .expect("Fail to create database");
+
+        let db_conn_str = format!("{}/{}", db_conn_str, db_name);
+
+        let connection = PgPoolOptions::new()
+            .connect(&db_conn_str)
+            .await
+            .expect("Failed to create Postgres connection pool.");
+
+        sqlx::migrate!()
+            .run(&connection)
+            .await
+            .expect("Failed to migrate the database");
+
+        db_conn_str
+    }
+
+    async fn configure_postgresql() -> PgPool {
+        let postgresql_conn_url = DATABASE_URL.to_owned();
+
+        let db_name = Uuid::new_v4().to_string();
+
+        let postgresql_conn_url_with_db =
+            Self::configure_database(&postgresql_conn_url, &db_name).await;
+
+        // Create a new connection pool and return it
+        Application::get_postgres_pool(&postgresql_conn_url_with_db)
+            .await
+            .expect("Failed to create Postgres connection pool!")
+    }
+
     pub fn get_random_email() -> String {
         format!("{}@example.com", Uuid::new_v4())
     }
 
     pub async fn new() -> Self {
+        let pg_pool = Self::configure_postgresql().await;
         let banned_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
-        let user_store = Arc::new(RwLock::new(HashmapUserStore::default()));
+        let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
         let email_client = Arc::new(RwLock::new(MockEmailClient));
         let app_state = AppState::new(
