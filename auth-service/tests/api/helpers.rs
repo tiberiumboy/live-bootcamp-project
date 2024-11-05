@@ -1,15 +1,15 @@
 use auth_service::{
-    app_state::AppState,
+    app_state::{AppState, BannedTokenStoreType},
     domain::data_store::{BannedTokenStore, TwoFACodeStore},
     services::{
         data_stores::{
             hashmap_two_fa_code_store::HashmapTwoFACodeStore,
-            hashset_banned_token_store::HashsetBannedTokenStore,
             postgres_user_store::PostgresUserStore,
+            redis_banned_token_store::RedisBannedTokenStore,
         },
         mock_email_client::MockEmailClient,
     },
-    utils::constants::{test, DATABASE_URL},
+    utils::constants::{test, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
 use reqwest::{cookie::Jar, Client};
@@ -26,7 +26,7 @@ pub struct TestApp {
     pub address: String,
     pub cookie_jar: Arc<Jar>,
     pub http_client: Client,
-    pub banned_store: Arc<RwLock<dyn BannedTokenStore>>,
+    pub banned_store: BannedTokenStoreType,
     pub two_fa_code_store: Arc<RwLock<dyn TwoFACodeStore>>,
     db_name: String,
     clean_up_called: bool,
@@ -95,12 +95,9 @@ impl TestApp {
             .await
             .expect("Fail to connect to PostgreSQL");
 
-        // kill any active connections
-        connection.execute(format!(r#"SELECT pg_terminate_backend(pg_stat_activity.pid) FROM pg_stat_activity WHERE pg_stat_activity.datname = '{}' AND pid <> pg_backend_pid();"#, db_name).as_str()).await.expect("Failed to drop the database connections.");
-
-        // drop database
+        // drop database and force close any active connections to the database.
         connection
-            .execute(format!(r#"DROP DATABASE "{}";"#, db_name).as_str())
+            .execute(format!(r#"DROP DATABASE "{}" WITH (FORCE);"#, db_name).as_str())
             .await
             .expect("Failed to drop the database.");
     }
@@ -116,7 +113,12 @@ impl TestApp {
 
     pub async fn new() -> Self {
         let (pg_pool, db_name) = Self::configure_postgresql().await;
-        let banned_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+        let redis_conn = Application::get_redis_client(REDIS_HOST_NAME.to_owned())
+            .expect("Failed to create Redis connection")
+            .get_connection()
+            .expect("Failed to get Redis connection");
+        let redis_wrap = Arc::new(RwLock::new(redis_conn));
+        let banned_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_wrap)));
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
         let email_client = Arc::new(RwLock::new(MockEmailClient));

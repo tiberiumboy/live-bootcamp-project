@@ -7,12 +7,14 @@ use reqwest::StatusCode;
 #[tokio::test]
 async fn valid_token_should_return_200() {
     let mut app = TestApp::new().await;
-    let email = Email::parse("test@test.com").expect("Unable to parse email");
+    let random_email = TestApp::get_random_email();
+    let email = Email::parse(&random_email).expect("Unable to parse email");
     let jwt = generate_auth_token(&email)
         .expect("dummy token is not valid! Please provide a valid token!");
     let body = JWToken { token: jwt };
+
     let result = app.post_verify_token(&body).await;
-    assert_eq!(result.status().as_u16(), 200);
+    assert_eq!(result.status(), StatusCode::OK);
 
     app.clean_up().await;
 }

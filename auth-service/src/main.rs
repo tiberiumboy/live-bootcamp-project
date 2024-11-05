@@ -3,23 +3,44 @@ use auth_service::{
     services::{
         data_stores::{
             hashmap_two_fa_code_store::HashmapTwoFACodeStore,
-            hashset_banned_token_store::HashsetBannedTokenStore,
             postgres_user_store::PostgresUserStore,
+            redis_banned_token_store::RedisBannedTokenStore,
         },
         mock_email_client::MockEmailClient,
     },
-    utils::constants::{prod, DATABASE_URL},
+    utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
 use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+async fn config_postgresql() -> PgPool {
+    let pg_pool = Application::get_postgres_pool(&DATABASE_URL)
+        .await
+        .expect("Fail to create Postgresql connection pool!");
+
+    sqlx::migrate!()
+        .run(&pg_pool)
+        .await
+        .expect("Fail to run migrations!");
+
+    pg_pool
+}
+
+fn configure_redis() -> redis::Connection {
+    Application::get_redis_client(REDIS_HOST_NAME.to_owned())
+        .expect("Failed to get Redis client, is Redis installed?")
+        .get_connection()
+        .expect("Failed to get Redis connection! Is the port open and configured correctly?")
+}
+
 #[tokio::main]
 async fn main() {
     let pg_pool = config_postgresql().await;
+    let redis_client = Arc::new(RwLock::new(configure_redis()));
     let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
-    let banned_token_store = Arc::new(RwLock::new(HashsetBannedTokenStore::default()));
+    let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_client)));
     let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
     let email_client = Arc::new(RwLock::new(MockEmailClient));
 
@@ -35,17 +56,4 @@ async fn main() {
         .expect("Failed to build app");
 
     app.run().await.expect("Failed to run app");
-}
-
-async fn config_postgresql() -> PgPool {
-    let pg_pool = Application::get_postgres_pool(&DATABASE_URL)
-        .await
-        .expect("Fail to create Postgresql connection pool!");
-
-    sqlx::migrate!()
-        .run(&pg_pool)
-        .await
-        .expect("Fail to run migrations!");
-
-    pg_pool
 }
