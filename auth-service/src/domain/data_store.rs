@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::{
     email::Email, login_attempt_id::LoginAttemptId, password::Password, two_fa_code::TwoFACode,
     user::User,
@@ -39,7 +41,14 @@ pub trait BannedTokenStore: Send + Sync {
 #[derive(Debug)]
 pub enum TwoFACodeStoreError {
     LoginAttemptIdNotFound,
+    NotFound,
     UnexpectedError, // should never happen...?
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TwoFARecord {
+    pub id: LoginAttemptId,
+    pub code: TwoFACode,
 }
 
 #[async_trait::async_trait]
@@ -51,8 +60,5 @@ pub trait TwoFACodeStore: Send + Sync {
         code: TwoFACode,
     ) -> Result<(), TwoFACodeStoreError>;
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError>;
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
+    async fn get_code(&self, email: &Email) -> Result<TwoFARecord, TwoFACodeStoreError>;
 }

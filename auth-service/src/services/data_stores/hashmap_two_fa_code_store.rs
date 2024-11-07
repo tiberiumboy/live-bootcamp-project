@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::domain::{
-    data_store::{TwoFACodeStore, TwoFACodeStoreError},
+    data_store::{TwoFACodeStore, TwoFACodeStoreError, TwoFARecord},
     email::Email,
     login_attempt_id::LoginAttemptId,
     two_fa_code::TwoFACode,
@@ -28,12 +28,14 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
         }
     }
 
-    async fn get_code(
-        &self,
-        email: &Email,
-    ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError> {
+    async fn get_code(&self, email: &Email) -> Result<TwoFARecord, TwoFACodeStoreError> {
         match self.codes.get(&email) {
-            Some(code) => Ok(code.to_owned()),
+            Some(code) => {
+                let id = code.0.clone();
+                let code = code.1.clone();
+                let record = TwoFARecord { id, code };
+                Ok(record)
+            }
             None => Err(TwoFACodeStoreError::LoginAttemptIdNotFound),
         }
     }
@@ -57,10 +59,10 @@ mod tests {
 
     fn get_default_value() -> (Email, LoginAttemptId, TwoFACode) {
         // TODO: replace this with faker email address
-        let email = Email::parse("test@test.com").expect("Unable to parse dummy email account");
+        let random_email = "test@test.com";
+        let email = Email::parse(random_email).expect("Unable to parse dummy email account");
         let id = LoginAttemptId::default();
         let code = TwoFACode::default();
-
         (email, id, code)
     }
 

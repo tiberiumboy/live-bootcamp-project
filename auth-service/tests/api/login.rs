@@ -70,7 +70,7 @@ pub async fn should_return_206_if_valid_cred_with_2fa() {
             .await
             .expect("Could not find entry in twoFACodeStore db!");
 
-        assert_eq!(body.login_attempt_id, code.0.as_ref());
+        assert_eq!(body.login_attempt_id, code.id.as_ref());
     }
     app.clean_up().await;
 }
