@@ -34,21 +34,25 @@ async fn valid_jwt_should_return_200() {
         .same_site(SameSite::Lax)
         .build();
 
-    let app = build_test_app(&cookie).await;
+    let mut app = build_test_app(&cookie).await;
     let result = &app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
     // verify that the banned token have a new entry in the banned list.
-    let store = app.banned_store.read().await;
-    let result = store.check_token(&token).await;
-    assert_eq!(result, true);
+    {
+        let store = app.banned_store.read().await;
+        let result = store.check_token(&token).await;
+        assert_eq!(result, true);
+    }
+    app.clean_up().await;
 }
 
 #[tokio::test]
 async fn missing_jwt_should_return_400() {
-    let app = TestApp::new().await;
+    let mut app = TestApp::new().await;
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::BAD_REQUEST);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -62,12 +66,13 @@ async fn logout_twice_should_return_400() {
         .http_only(true)
         .secure(true)
         .build();
-    let app = build_test_app(&cookie).await;
+    let mut app = build_test_app(&cookie).await;
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::BAD_REQUEST);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -78,9 +83,10 @@ async fn invalid_jwt_should_return_401() {
         .http_only(true)
         .secure(true)
         .build();
-    let app = build_test_app(&cookie).await;
+    let mut app = build_test_app(&cookie).await;
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::UNAUTHORIZED);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -91,7 +97,7 @@ async fn banned_token_should_return_401() {
         .same_site(SameSite::Lax)
         .build();
 
-    let app = build_test_app(&cookie).await;
+    let mut app = build_test_app(&cookie).await;
 
     {
         // using this scope hack to ensure the Arc nand RwLock gets dropped at the end of the call?
@@ -106,6 +112,7 @@ async fn banned_token_should_return_401() {
     });
     let check = &app.post_verify_token(&content).await;
     assert_eq!(check.status(), StatusCode::UNAUTHORIZED);
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -118,13 +125,13 @@ async fn ensure_cookie_is_clear_after_success_logout() {
         .http_only(true)
         .secure(true)
         .build();
-    let app = build_test_app(&cookie).await;
+    let mut app = build_test_app(&cookie).await;
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
     // one we get a successful logout prompt - we need to check the cookiejar and ensure that jwt is cleared
     let url = Url::parse("http://127.0.0.1").expect("Unable to parse app's address!");
     let result = &app.cookie_jar.cookies(&url);
-    dbg!(&result);
     assert_eq!(result.is_none(), true);
+    app.clean_up().await;
 }

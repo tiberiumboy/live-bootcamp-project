@@ -23,7 +23,7 @@ impl UserStore for HashmapUserStore {
         let user = self.users.iter().find(|e| e.0.eq(email));
         match user {
             Some((_, user)) => Ok(user.clone()),
-            None => Err(UserStoreError::UesrNotFound),
+            None => Err(UserStoreError::UserNotFound),
         }
     }
 
@@ -37,6 +37,11 @@ impl UserStore for HashmapUserStore {
             return Err(UserStoreError::InvalidCredentials);
         }
         Ok(user)
+    }
+
+    async fn delete_user(&mut self, email: Email) -> Result<(), UserStoreError> {
+        self.users.retain(|k, _| k.eq(&email));
+        Ok(())
     }
 }
 

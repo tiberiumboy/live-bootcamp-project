@@ -12,7 +12,7 @@ fi
 # read each line in the .env file (ignoring comments)
 while IFS= read -r line; do
 #skip blank lines and lines starting with #
-    if [[ -n "$line" ]] && [[ "$line" != \#* ]]; then 
+    if [[ -n "$line" ]] && [[ "$line" != \#* ]]; then
         key=$(echo "$line" | cut -d '=' -f1-)
         value=$(echo "$line" | cut -d '=' -f2-)
         export "$key=$value"
@@ -20,5 +20,5 @@ while IFS= read -r line; do
 done < <(grep -v '^#' "$ENV_FILE")
 
 # run docker commands
-docker-compose build
-docker-compose up
+docker compose build
+docker compose up

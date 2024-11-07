@@ -36,7 +36,7 @@ pub async fn verify_2fa(
         .await
         .map_err(|_| AuthAPIError::IncorrectCredentials)?;
 
-    if info.0.ne(&id) || info.1.ne(&code) {
+    if info.id.ne(&id) || info.code.ne(&code) {
         return Err(AuthAPIError::MismatchIdentification);
     }
 
