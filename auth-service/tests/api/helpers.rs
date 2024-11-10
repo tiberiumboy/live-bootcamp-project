@@ -1,6 +1,6 @@
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType},
-    domain::data_store::{BannedTokenStore, TwoFACodeStore},
+    domain::data_store::TwoFACodeStore,
     services::{
         data_stores::{
             hashmap_two_fa_code_store::HashmapTwoFACodeStore,

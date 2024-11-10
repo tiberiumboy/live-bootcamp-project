@@ -3,11 +3,10 @@ use auth_service::{
     domain::email::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME,
 };
 use reqwest::StatusCode;
+use test_helpers::api_test;
 
-#[tokio::test]
+#[api_test]
 pub async fn should_return_200_if_valid_cred_no_2fa() {
-    let mut app = TestApp::new().await;
-
     let email = TestApp::get_random_email();
 
     let signup = serde_json::json!({
@@ -33,12 +32,10 @@ pub async fn should_return_200_if_valid_cred_no_2fa() {
         .expect("No auth cookie found!");
 
     assert!(!auth_cookie.value().is_empty());
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 pub async fn should_return_206_if_valid_cred_with_2fa() {
-    let mut app = TestApp::new().await;
     // TODO: use faker lib to generate fake email
     let email = Email::parse("test@test.com").expect("Unable to parse dummy email account");
     // first, create a test account.
@@ -72,13 +69,10 @@ pub async fn should_return_206_if_valid_cred_with_2fa() {
 
         assert_eq!(body.login_attempt_id, code.id.as_ref());
     }
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn malformed_input_should_return_422() {
-    let mut app = TestApp::new().await;
-
     let test_case = [
         serde_json::json!({
             "email":"test@test.com"
@@ -113,14 +107,10 @@ async fn malformed_input_should_return_422() {
         let response = &app.post_login(&test).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
-
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn invalid_input_should_return_400() {
-    let mut app = TestApp::new().await;
-
     let test_case = [
         serde_json::json!({
             "email":"test.test.com",
@@ -140,13 +130,10 @@ async fn invalid_input_should_return_400() {
         let response = &app.post_login(&test).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn non_existing_user_should_return_401() {
-    let mut app = TestApp::new().await;
-
     let email = "test@test.com";
     let password = "Password123!";
 
@@ -158,13 +145,10 @@ async fn non_existing_user_should_return_401() {
 
     let response = app.post_login(&invalid_user).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn unauthorize_user_should_return_401() {
-    let mut app = TestApp::new().await;
-
     let email = "test@test.com";
     let password = "Password123!";
     let wrong_password = "password123!";
@@ -186,5 +170,4 @@ async fn unauthorize_user_should_return_401() {
 
     let response = app.post_login(&invalid_user).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }

@@ -5,3 +5,4 @@
 
 /target
 .env
+/test_helpers/target

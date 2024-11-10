@@ -3,10 +3,10 @@ use auth_service::domain::email::Email;
 use auth_service::routes::jwt::JWToken;
 use auth_service::utils::auth::generate_auth_token;
 use reqwest::StatusCode;
+use test_helpers::api_test;
 
-#[tokio::test]
+#[api_test]
 async fn valid_token_should_return_200() {
-    let mut app = TestApp::new().await;
     let random_email = TestApp::get_random_email();
     let email = Email::parse(&random_email).expect("Unable to parse email");
     let jwt = generate_auth_token(&email)
@@ -15,14 +15,10 @@ async fn valid_token_should_return_200() {
 
     let result = app.post_verify_token(&body).await;
     assert_eq!(result.status(), StatusCode::OK);
-
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn malformed_input_should_return_422() {
-    let mut app = TestApp::new().await;
-
     // an error 422 returns unprocessable content. Fill in invalid token type.
     let test_case = [
         serde_json::json!({
@@ -43,18 +39,13 @@ async fn malformed_input_should_return_422() {
         let response = &app.post_verify_token(&test).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
-
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn invalid_token_should_return_401() {
-    let mut app = TestApp::new().await;
     let body = serde_json::json!({
         "token": "invalid",
     });
     let result = app.post_verify_token(&body).await;
     assert_eq!(result.status(), StatusCode::UNAUTHORIZED);
-
-    app.clean_up().await;
 }

@@ -3,6 +3,7 @@ use auth_service::domain::{
     email::Email, login_attempt_id::LoginAttemptId, two_fa_code::TwoFACode,
 };
 use reqwest::StatusCode;
+use test_helpers::api_test;
 
 /*
     400: Invalid Input
@@ -11,10 +12,9 @@ use reqwest::StatusCode;
     500: Unexpected error (Should never happen)
 */
 
-#[tokio::test]
+#[api_test]
 async fn verify_2fa_should_pass() {
     // we need to provide a invalid data input somehow?
-    let mut app = TestApp::new().await;
     let email = Email::parse(&TestApp::get_random_email())
         .expect("Unable to parse dummy email for unit test!");
     let id = LoginAttemptId::default();
@@ -35,10 +35,9 @@ async fn verify_2fa_should_pass() {
 
     let response = app.post_verify_2fa(&context).await;
     assert_eq!(response.status(), StatusCode::OK);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn malform_field_input_should_return_400() {
     /* JSON Requirement, all field must be present, otherwise throw 422: Unprocessable entity
        {
@@ -47,8 +46,6 @@ async fn malform_field_input_should_return_400() {
            2FACode: "<String>"
        }
     */
-
-    let mut app = TestApp::new().await;
     let email = Email::parse(&TestApp::get_random_email()).unwrap();
     let code = TwoFACode::default();
     let id = LoginAttemptId::default();
@@ -90,10 +87,9 @@ async fn malform_field_input_should_return_400() {
         let response = &app.post_verify_2fa(&test).await;
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn malformed_input_should_return_422() {
     /* JSON Requirement, all field must be present, otherwise throw 422: Unprocessable entity
        {
@@ -103,7 +99,6 @@ async fn malformed_input_should_return_422() {
        }
     */
 
-    let mut app = TestApp::new().await;
     let email = Email::parse("test@test.com").unwrap();
     let code = TwoFACode::default();
     let id = LoginAttemptId::default();
@@ -136,12 +131,10 @@ async fn malformed_input_should_return_422() {
         let response = &app.post_verify_2fa(&test).await;
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn non_existing_email_should_return_401() {
-    let mut app = TestApp::new().await;
     let email = Email::parse(&TestApp::get_random_email())
         .expect("Unable to parse dummy email for unit test!");
     let fake_user = Email::parse(&TestApp::get_random_email())
@@ -165,12 +158,10 @@ async fn non_existing_email_should_return_401() {
 
     let response = app.post_verify_2fa(&context).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn invalid_id_should_return_401() {
-    let mut app = TestApp::new().await;
     let email = Email::parse(&TestApp::get_random_email())
         .expect("Unable to parse dummy email for unit test!");
 
@@ -193,12 +184,10 @@ async fn invalid_id_should_return_401() {
 
     let response = app.post_verify_2fa(&context).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn invalid_code_should_return_401() {
-    let mut app = TestApp::new().await;
     let email = Email::parse(&TestApp::get_random_email())
         .expect("Unable to parse dummy email for unit test!");
 
@@ -221,13 +210,11 @@ async fn invalid_code_should_return_401() {
 
     let response = app.post_verify_2fa(&context).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn using_same_2fa_code_twice_should_return_401() {
     // we need to provide a invalid data input somehow?
-    let mut app = TestApp::new().await;
     let email = Email::parse(&TestApp::get_random_email())
         .expect("Unable to parse dummy email for unit test!");
     let id = LoginAttemptId::default();
@@ -251,5 +238,4 @@ async fn using_same_2fa_code_twice_should_return_401() {
 
     let response = app.post_verify_2fa(&context).await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }

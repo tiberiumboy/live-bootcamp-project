@@ -10,6 +10,8 @@ reqwest = { version = "^0", default-features = false, features = [
     "cookies",
 ] }
 rstest = "0.23.0"
+quickcheck = "0.9.2"
+quickcheck_macros = "0.9.1"
 
 [dependencies]
 # Used to hash Password before storing to database.
@@ -42,3 +44,7 @@ thiserror = "1.0.64"
 tokio = { version = "^1", features = ["full"] }
 tower-http = { version = "^0", features = ["fs", "cors"] }
 uuid = { version = "^1", features = ["v4", "serde"] }
+# test_helpers = { path = "../test_helpers" }
+# I want to rely on the test helpers in the local file, instead of reading into repository... why can't I do this?
+# Running into problems with docker compose because it couldn't find test-helpers??
+test_helpers = { git = "https://github.com/letsgetrusty/test-helpers.git" }

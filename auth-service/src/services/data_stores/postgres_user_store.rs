@@ -55,19 +55,19 @@ impl UserStore for PostgresUserStore {
         let email: &Email = user.as_ref();
         let user_pwd: &Password = user.as_ref();
         let pwd_str: String = user_pwd.as_ref().to_owned();
+        // todo: need to read more about how I can move objects into thread properly?
+        // I would like to learn more about how the move keyword works?
         let password_hash = tokio::task::spawn_blocking(move || {
             Self::compute_password_hash(pwd_str).map_err(|_| UserStoreError::UnexpectedError)
         })
         .await
         .map_err(|_| UserStoreError::UnexpectedError)??;
-        let requires_2fa = user.requires_2fa();
-        // is there sanitization for the database?
-        sqlx::query_as!(
-            UserDB,
-            "INSERT INTO users (email, password_hash, requires_2fa) VALUES ( $1, $2, $3 );",
+
+        sqlx::query!(
+            "INSERT INTO users (email, password_hash, requires_2FA) VALUES( $1, $2, $3);",
             email.as_ref(),
             password_hash,
-            requires_2fa
+            user.requires_2fa()
         )
         .execute(&self.pool)
         .await

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO users (email, password_hash, requires_2fa) VALUES ( $1, $2, $3 );",
+  "query": "INSERT INTO users (email, password_hash, requires_2FA) VALUES( $1, $2, $3);",
   "describe": {
     "columns": [],
     "parameters": {
@@ -12,5 +12,5 @@
     },
     "nullable": []
   },
-  "hash": "83fab700d19b2b75c8718ed5b3bf4eb4ca7ae46759d2c00bada72ddbc30f7fa9"
+  "hash": "b8cb7de5066857c6bbdb1973099943780649b85e455696c54dd9bb05d62456b3"
 }

@@ -5,14 +5,7 @@ use auth_service::{
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use reqwest::{cookie::CookieStore, StatusCode, Url};
-
-// this function helps reduce multiple repeated code patterns.
-async fn build_test_app<'a>(cookie: &Cookie<'a>) -> TestApp {
-    let app = TestApp::new().await;
-    let url = Url::parse("http://127.0.0.1").expect("Unable to parse the url for testing purposes");
-    let _ = &app.cookie_jar.add_cookie_str(&cookie.to_string(), &url);
-    app
-}
+use test_helpers::api_test;
 
 fn get_fake_email() -> Email {
     Email::parse("test@test.com").expect("Unable to parse test email account!")
@@ -25,16 +18,23 @@ fn generate_valid_token() -> String {
         .to_owned()
 }
 
-#[tokio::test]
+fn generate_default_cookie<'c>(token: String) -> Cookie<'c> {
+    Cookie::build((JWT_COOKIE_NAME, token))
+        .path("/")
+        .same_site(SameSite::Lax)
+        .http_only(true)
+        .secure(true)
+        .build()
+}
+
+#[api_test]
 async fn valid_jwt_should_return_200() {
     let token = generate_valid_token();
 
-    let cookie = Cookie::build((JWT_COOKIE_NAME, &token))
-        .path("/")
-        .same_site(SameSite::Lax)
-        .build();
+    let cookie = generate_default_cookie(token.clone());
+    let url = Url::parse("http://127.0.0.1").expect("Unable to parse the url for testing purposes");
+    let _ = &app.cookie_jar.add_cookie_str(&cookie.to_string(), &url);
 
-    let mut app = build_test_app(&cookie).await;
     let result = &app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
@@ -47,57 +47,45 @@ async fn valid_jwt_should_return_200() {
     app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn missing_jwt_should_return_400() {
-    let mut app = TestApp::new().await;
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::BAD_REQUEST);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn logout_twice_should_return_400() {
     // log in and verify that first.
     // then log out again.
     let token = generate_valid_token();
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token))
-        .path("/")
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .secure(true)
-        .build();
-    let mut app = build_test_app(&cookie).await;
+    let cookie = generate_default_cookie(token);
+    let url = Url::parse("http://127.0.0.1").expect("Unable to parse the url for testing purposes");
+    let _ = &app.cookie_jar.add_cookie_str(&cookie.to_string(), &url);
+
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::BAD_REQUEST);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn invalid_jwt_should_return_401() {
-    let cookie = Cookie::build((JWT_COOKIE_NAME, "invalid"))
-        .path("/")
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .secure(true)
-        .build();
-    let mut app = build_test_app(&cookie).await;
+    let cookie = generate_default_cookie("invalid".to_owned());
+    let url = Url::parse("http://127.0.0.1").expect("Unable to parse the url for testing purposes");
+    let _ = &app.cookie_jar.add_cookie_str(&cookie.to_string(), &url);
+
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn banned_token_should_return_401() {
     let token = generate_valid_token();
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token.clone()))
-        .path("/")
-        .same_site(SameSite::Lax)
-        .build();
+    let cookie = generate_default_cookie(token.clone());
 
-    let mut app = build_test_app(&cookie).await;
+    let url = Url::parse("http://127.0.0.1").expect("Unable to parse the url for testing purposes");
+    let _ = &app.cookie_jar.add_cookie_str(&cookie.to_string(), &url);
 
     {
         // using this scope hack to ensure the Arc nand RwLock gets dropped at the end of the call?
@@ -112,20 +100,16 @@ async fn banned_token_should_return_401() {
     });
     let check = &app.post_verify_token(&content).await;
     assert_eq!(check.status(), StatusCode::UNAUTHORIZED);
-    app.clean_up().await;
 }
 
-#[tokio::test]
+#[api_test]
 async fn ensure_cookie_is_clear_after_success_logout() {
     let email = get_fake_email();
     let token = generate_auth_cookie(&email).expect("Unable to generate dummy token to test");
-    let cookie = Cookie::build((JWT_COOKIE_NAME, token.value()))
-        .path("/")
-        .same_site(SameSite::Lax)
-        .http_only(true)
-        .secure(true)
-        .build();
-    let mut app = build_test_app(&cookie).await;
+    let cookie = generate_default_cookie(token.value().to_owned());
+    let url = Url::parse("http://127.0.0.1").expect("Unable to parse the url for testing purposes");
+    let _ = &app.cookie_jar.add_cookie_str(&cookie.to_string(), &url);
+
     let result = app.post_logout().await;
     assert_eq!(result.status(), StatusCode::OK);
 
@@ -133,5 +117,4 @@ async fn ensure_cookie_is_clear_after_success_logout() {
     let url = Url::parse("http://127.0.0.1").expect("Unable to parse app's address!");
     let result = &app.cookie_jar.cookies(&url);
     assert_eq!(result.is_none(), true);
-    app.clean_up().await;
 }

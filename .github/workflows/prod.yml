@@ -1,11 +1,9 @@
 name: Build, Test and Deploy to Prod
 
-# Trigger the workflow when changes are pushed to the main branch
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 env:
   SQLX_OFFLINE: true
@@ -54,7 +52,6 @@ jobs:
       - name: Build and test app-service code
         working-directory: ./app-service
         run: |
-          export JWT_SECRET=secret
           cargo build --verbose
           cargo test --verbose
 
