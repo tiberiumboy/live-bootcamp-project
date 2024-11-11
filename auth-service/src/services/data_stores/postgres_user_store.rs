@@ -26,23 +26,13 @@ impl PostgresUserStore {
         expected_password_hash: Secret<String>,
         password_candidate: Secret<String>,
     ) -> Result<()> {
-        expected_password_hash: Secret<String>,
-        password_candidate: Secret<String>,
-    ) -> Result<()> {
         let curr_span: tracing::Span = tracing::Span::current();
 
         let result = tokio::task::spawn_blocking(move || {
             curr_span.in_scope(|| {
                 let expected_password_hash =
                     PasswordHash::new(expected_password_hash.expose_secret())?;
-                let expected_password_hash =
-                    PasswordHash::new(expected_password_hash.expose_secret())?;
                 Argon2::default()
-                    .verify_password(
-                        password_candidate.expose_secret().as_bytes(),
-                        &expected_password_hash,
-                    )
-                    .wrap_err("Fail to verify password hash")
                     .verify_password(
                         password_candidate.expose_secret().as_bytes(),
                         &expected_password_hash,
@@ -57,8 +47,6 @@ impl PostgresUserStore {
 
     #[tracing::instrument(name = "Compute password hash", skip_all)]
     pub async fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
-    #[tracing::instrument(name = "Compute password hash", skip_all)]
-    pub async fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
         let span = tracing::Span::current();
         let result = tokio::task::spawn_blocking(move || {
             span.in_scope(|| {
@@ -69,10 +57,8 @@ impl PostgresUserStore {
                     Params::new(15000, 2, 1, None)?,
                 )
                 .hash_password(&password.expose_secret().as_bytes(), &salt)?
-                .hash_password(&password.expose_secret().as_bytes(), &salt)?
                 .to_string();
 
-                Ok(Secret::new(result))
                 Ok(Secret::new(result))
             })
         })
@@ -89,9 +75,7 @@ impl UserStore for PostgresUserStore {
         let email: &Email = user.as_ref();
         let user_pwd: &Password = user.as_ref();
         let password_hash = Self::compute_password_hash(user_pwd.as_ref().to_owned())
-        let password_hash = Self::compute_password_hash(user_pwd.as_ref().to_owned())
             .await
-            .map_err(UserStoreError::UnexpectedError)?;
             .map_err(UserStoreError::UnexpectedError)?;
 
         sqlx::query!(
@@ -102,7 +86,6 @@ impl UserStore for PostgresUserStore {
         )
         .execute(&self.pool)
         .await
-        .map_err(|e| UserStoreError::UnexpectedError(e.into()))?;
         .map_err(|e| UserStoreError::UnexpectedError(e.into()))?;
 
         Ok(())

@@ -1,13 +1,10 @@
-use axum::http::StatusCode;
-use axum::{extract::State, response::IntoResponse, Json};
-use secrecy::Secret;
-use secrecy::Secret;
-use serde::{Deserialize, Serialize};
-
 use crate::app_state::AppState;
 use crate::domain::error::AuthAPIError;
 use crate::domain::user::User;
-use crate::domain::user::User;
+use axum::http::StatusCode;
+use axum::{extract::State, response::IntoResponse, Json};
+use secrecy::Secret;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
 pub struct SignupRequest {
@@ -23,7 +20,6 @@ pub struct SignupResponse {
 }
 
 #[tracing::instrument(name = "Signup", skip_all)]
-#[tracing::instrument(name = "Signup", skip_all)]
 pub async fn signup(
     State(state): State<AppState>,
     Json(request): Json<SignupRequest>,
@@ -33,7 +29,6 @@ pub async fn signup(
     let user = match User::parse(request.email, request.password, request.requires_2fa) {
         Ok(user) => user,
         Err(e) => return Err(AuthAPIError::InvalidData(e.to_string())),
-        Err(e) => return Err(AuthAPIError::InvalidData(e.to_string())),
     };
 
     let mut user_store = state.user_store.write().await;
@@ -42,14 +37,6 @@ pub async fn signup(
         return Err(AuthAPIError::UserAlreadyExists);
     }
 
-    if let Err(e) = user_store.add_user(user).await {
-        return Err(AuthAPIError::UnexpectedError(e.into()));
-    };
-
-    let response = Json(SignupResponse {
-        message: "User created successfully!".to_string(),
-    });
-    Ok((StatusCode::CREATED, response).into_response())
     if let Err(e) = user_store.add_user(user).await {
         return Err(AuthAPIError::UnexpectedError(e.into()));
     };
