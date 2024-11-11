@@ -1,5 +1,5 @@
 use color_eyre::eyre::Report;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use thiserror::Error;
 
 use super::{

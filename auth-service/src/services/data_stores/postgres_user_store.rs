@@ -8,7 +8,7 @@ use argon2::{
     password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
     PasswordVerifier, Version,
 };
-use color_eyre::eyre::{eyre, Context, Result};
+use color_eyre::eyre::{Context, Result};
 use secrecy::{ExposeSecret, Secret};
 use sqlx::PgPool;
 
@@ -26,13 +26,23 @@ impl PostgresUserStore {
         expected_password_hash: Secret<String>,
         password_candidate: Secret<String>,
     ) -> Result<()> {
+        expected_password_hash: Secret<String>,
+        password_candidate: Secret<String>,
+    ) -> Result<()> {
         let curr_span: tracing::Span = tracing::Span::current();
 
         let result = tokio::task::spawn_blocking(move || {
             curr_span.in_scope(|| {
                 let expected_password_hash =
                     PasswordHash::new(expected_password_hash.expose_secret())?;
+                let expected_password_hash =
+                    PasswordHash::new(expected_password_hash.expose_secret())?;
                 Argon2::default()
+                    .verify_password(
+                        password_candidate.expose_secret().as_bytes(),
+                        &expected_password_hash,
+                    )
+                    .wrap_err("Fail to verify password hash")
                     .verify_password(
                         password_candidate.expose_secret().as_bytes(),
                         &expected_password_hash,
@@ -47,6 +57,8 @@ impl PostgresUserStore {
 
     #[tracing::instrument(name = "Compute password hash", skip_all)]
     pub async fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
+    #[tracing::instrument(name = "Compute password hash", skip_all)]
+    pub async fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
         let span = tracing::Span::current();
         let result = tokio::task::spawn_blocking(move || {
             span.in_scope(|| {
@@ -57,8 +69,10 @@ impl PostgresUserStore {
                     Params::new(15000, 2, 1, None)?,
                 )
                 .hash_password(&password.expose_secret().as_bytes(), &salt)?
+                .hash_password(&password.expose_secret().as_bytes(), &salt)?
                 .to_string();
 
+                Ok(Secret::new(result))
                 Ok(Secret::new(result))
             })
         })
@@ -75,17 +89,20 @@ impl UserStore for PostgresUserStore {
         let email: &Email = user.as_ref();
         let user_pwd: &Password = user.as_ref();
         let password_hash = Self::compute_password_hash(user_pwd.as_ref().to_owned())
+        let password_hash = Self::compute_password_hash(user_pwd.as_ref().to_owned())
             .await
+            .map_err(UserStoreError::UnexpectedError)?;
             .map_err(UserStoreError::UnexpectedError)?;
 
         sqlx::query!(
             "INSERT INTO users (email, password_hash, requires_2FA) VALUES( $1, $2, $3);",
-            email.as_ref(),
+            email.as_ref().expose_secret(),
             password_hash.expose_secret(),
             user.requires_2fa()
         )
         .execute(&self.pool)
         .await
+        .map_err(|e| UserStoreError::UnexpectedError(e.into()))?;
         .map_err(|e| UserStoreError::UnexpectedError(e.into()))?;
 
         Ok(())
@@ -95,7 +112,7 @@ impl UserStore for PostgresUserStore {
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         sqlx::query!(
             r#"SELECT email, password_hash, requires_2fa FROM users WHERE email = $1"#,
-            email.as_ref()
+            email.as_ref().expose_secret()
         )
         .fetch_one(&self.pool)
         .await
@@ -126,19 +143,22 @@ impl UserStore for PostgresUserStore {
         match result {
             Ok(_) => Ok(user),
             Err(e) => Err(UserStoreError::UnexpectedError(e.into())),
+            Err(e) => Err(UserStoreError::UnexpectedError(e.into())),
         }
     }
 
     #[tracing::instrument(name = "Delete user from PostgreSQL", skip_all)]
     async fn delete_user(&mut self, email: Email) -> Result<(), UserStoreError> {
         let sql = "DELETE FROM users WHERE email = ?";
-        match sqlx::query(sql)
-            .bind(email.as_ref())
+        if sqlx::query(sql)
+            .bind(email.as_ref().expose_secret())
             .execute(&self.pool)
             .await
+            .is_err()
         {
-            Ok(_) => Ok(()),
-            Err(_) => Err(UserStoreError::UserNotFound),
+            return Err(UserStoreError::UserNotFound);
         }
+
+        Ok(())
     }
 }
