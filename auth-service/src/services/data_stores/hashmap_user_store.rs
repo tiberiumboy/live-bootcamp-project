@@ -49,12 +49,15 @@ impl UserStore for HashmapUserStore {
 mod tests {
     use super::*;
     use crate::domain::user::User;
+    use secrecy::Secret;
 
     #[tokio::test]
     async fn test_add_user() {
-        let email = "test@test.com";
-        let password = "password123!";
-        let result = User::parse(email, password, true);
+        let email = "test@test.com".to_owned();
+        let password = "password123!".to_owned();
+        let email_secret = Secret::new(email);
+        let pwd_secret = Secret::new(password);
+        let result = User::parse(email_secret, pwd_secret, true);
         assert_eq!(result.is_ok(), true);
         let user = result.unwrap();
         let mut db = HashmapUserStore::default();
@@ -64,9 +67,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_user() {
-        let email = "test@test.com";
-        let password = "password123!";
-        let result = User::parse(email, password, true);
+        let email = "test@test.com".to_owned();
+        let password = "password123!".to_owned();
+        let email_secret = Secret::new(email);
+        let pwd_secret = Secret::new(password);
+        let result = User::parse(email_secret, pwd_secret, true);
         assert_eq!(result.is_ok(), true);
 
         let user = result.unwrap();
@@ -80,9 +85,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_user() {
-        let email = "test@test.com";
-        let password = "password123!";
-        let result = User::parse(email, password, true);
+        let email = "test@test.com".to_owned();
+        let password = "password123!".to_owned();
+        let email_secret = Secret::new(email);
+        let pwd_secret = Secret::new(password);
+        let result = User::parse(email_secret, pwd_secret, true);
         assert_eq!(result.is_ok(), true);
 
         let user = result.unwrap();

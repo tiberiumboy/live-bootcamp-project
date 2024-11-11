@@ -1,22 +1,23 @@
 use dotenvy::dotenv;
+use secrecy::Secret;
 use std::{env as std_env, sync::LazyLock};
 
-pub static JWT_SECRET: LazyLock<String> = LazyLock::new(|| {
+pub static JWT_SECRET: LazyLock<Secret<String>> = LazyLock::new(|| {
     dotenv().ok();
     let secret = std_env::var(env::JWT_SECRET_ENV_VAR).expect("JWT_SECRET must be set!");
     if secret.is_empty() {
         panic!("JWT_SECRET_ENV must not be empty!");
     }
-    secret
+    Secret::new(secret)
 });
 
-pub static DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
+pub static DATABASE_URL: LazyLock<Secret<String>> = LazyLock::new(|| {
     dotenv().ok();
     let url = std_env::var(env::DATABASE_URL_ENV_VAR).expect("DATABASE_URL must be set!");
     if url.is_empty() {
         panic!("DATABASE_URL must not be empty?"); // should we be allow to panic at this stage?
     }
-    url
+    Secret::new(url)
 });
 
 pub static REDIS_HOST_NAME: LazyLock<String> = LazyLock::new(|| {

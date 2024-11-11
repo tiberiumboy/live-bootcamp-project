@@ -5,6 +5,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::{response::IntoResponse, Json};
 
+#[tracing::instrument(name = "Verify Token", skip_all)]
 pub async fn verify_token(
     State(app): State<AppState>,
     Json(jwt): Json<JWToken>,

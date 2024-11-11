@@ -1,34 +1,32 @@
 use super::constants::{JWT_COOKIE_NAME, JWT_SECRET, TOKEN_TTL_SECONDS};
 use crate::domain::email::Email;
-
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use chrono::Duration;
 use chrono::Utc;
+use color_eyre::eyre::{Context, ContextCompat, Result};
 use jsonwebtoken::{
     decode, encode, errors::Error as JWTError, DecodingKey, EncodingKey, Validation,
 };
-use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, Secret};
+use serde::Deserialize;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct Claims {
-    pub sub: String,
+    pub sub: Secret<String>, // Task 4 requires me to update auth's claim to use secret, but encode needs to be able to serialize this input??
     pub exp: usize,
 }
 
-#[derive(Debug)]
-pub enum GenerateTokenError {
-    TokenError(JWTError),
-    UnexpectedError,
-}
-
-fn create_token(claim: Claims) -> Result<String, JWTError> {
+#[tracing::instrument(name = "Create new Json Web Token", skip_all)]
+fn create_token(claim: Claims) -> Result<String> {
     encode(
         &jsonwebtoken::Header::default(),
-        &claim,
-        &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &claim, // I need to be able to serialize the claim???
+        &EncodingKey::from_secret(JWT_SECRET.expose_secret().as_bytes()),
     )
+    .wrap_err("Fail to generate Json Web Token")
 }
 
+#[tracing::instrument(name = "Create authentication cookie", skip_all)]
 fn create_auth_cookie(token: String) -> Cookie<'static> {
     Cookie::build((JWT_COOKIE_NAME, token))
         .path("/") // apply cookie to all URLs on the server
@@ -37,34 +35,35 @@ fn create_auth_cookie(token: String) -> Cookie<'static> {
         .build()
 }
 
-pub fn generate_auth_token(email: &Email) -> Result<String, GenerateTokenError> {
+#[tracing::instrument(name = "Generate new Json Web Token", skip_all)]
+pub fn generate_auth_token(email: &Email) -> Result<String> {
     let delta =
-        Duration::try_seconds(TOKEN_TTL_SECONDS).ok_or(GenerateTokenError::UnexpectedError)?;
-
+        Duration::try_seconds(TOKEN_TTL_SECONDS).wrap_err("Fail to create 10 minute time delta")?;
     let exp = Utc::now()
         .checked_add_signed(delta)
-        .ok_or(GenerateTokenError::UnexpectedError)?
+        .wrap_err("Date is out of range")?
         .timestamp();
 
     let exp: usize = exp
         .try_into()
-        .map_err(|_| GenerateTokenError::UnexpectedError)?;
+        .wrap_err("Unable to convert expiration type")?;
 
     let sub = email.as_ref().to_owned();
     let claims = Claims { sub, exp };
-
-    create_token(claims).map_err(GenerateTokenError::TokenError)
+    create_token(claims)
 }
 
-pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, GenerateTokenError> {
+#[tracing::instrument(name = "Generate authentication cookie", skip_all)]
+pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>> {
     let token = generate_auth_token(email)?;
     Ok(create_auth_cookie(token))
 }
 
+#[tracing::instrument(name = "Validate Json Web Token", skip_all)]
 pub async fn validate_token(token: &str) -> Result<Claims, JWTError> {
     decode::<Claims>(
         token,
-        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &DecodingKey::from_secret(JWT_SECRET.expose_secret().as_bytes()),
         &Validation::default(),
     )
     .map(|data| data.claims)
@@ -73,10 +72,13 @@ pub async fn validate_token(token: &str) -> Result<Claims, JWTError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use secrecy::Secret;
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {
-        let email = Email::parse("test@test.com").unwrap();
+        let input = "test@test.com".to_owned();
+        let secret = Secret::new(input);
+        let email = Email::parse(secret).unwrap();
         let cookie = generate_auth_cookie(&email).unwrap();
         assert_eq!(cookie.name(), JWT_COOKIE_NAME);
         assert_eq!(cookie.value().split('.').count(), 3);
@@ -98,15 +100,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_token_with_valid_token() {
-        let account = "test@test.com";
-        let email = Email::parse(&account).unwrap();
+        let account = "test@test.com".to_owned();
+        let secret = Secret::new(account);
+        let email = Email::parse(secret.clone()).unwrap();
         let token = generate_auth_token(&email).unwrap();
         let result = validate_token(&token).await;
 
         assert!(result.is_ok());
 
         let result = result.unwrap();
-        assert_eq!(result.sub, account);
+        assert_eq!(result.sub.expose_secret(), secret.expose_secret());
 
         let exp = Utc::now()
             .checked_add_signed(chrono::Duration::try_minutes(9).expect("valid duration"))

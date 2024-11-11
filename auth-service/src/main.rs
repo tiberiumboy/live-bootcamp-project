@@ -40,7 +40,8 @@ fn configure_redis() -> redis::Connection {
 
 #[tokio::main]
 async fn main() {
-    init_tracing();
+    color_eyre::install().expect("Failed to install color_eyre");
+    init_tracing().expect("Fail to initialize tracing!");
     let pg_pool = config_postgresql().await;
     let redis_client = Arc::new(RwLock::new(configure_redis()));
 

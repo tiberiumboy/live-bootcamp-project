@@ -1,3 +1,4 @@
+use color_eyre::eyre::{eyre, Result};
 use std::collections::HashMap;
 
 use crate::domain::{
@@ -20,12 +21,14 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
         id: LoginAttemptId,
         code: TwoFACode,
     ) -> Result<(), TwoFACodeStoreError> {
-        match self.codes.insert(email, (id, code)) {
+        if let Some(_) = self.codes.insert(email, (id, code)) {
             // if we received some, it means the key already exist instead, it updates the hashmap table, returning the old value back...
             // TODO: Discuss whether we need to handle this specific type of update or not?
-            Some(_) => Err(TwoFACodeStoreError::UnexpectedError),
-            None => Ok(()),
+            return Err(TwoFACodeStoreError::UnexpectedError(eyre!(
+                "Key already exist!"
+            )));
         }
+        Ok(())
     }
 
     async fn get_code(&self, email: &Email) -> Result<TwoFARecord, TwoFACodeStoreError> {
@@ -56,11 +59,13 @@ mod tests {
     };
 
     use super::HashmapTwoFACodeStore;
+    use secrecy::Secret;
 
     fn get_default_value() -> (Email, LoginAttemptId, TwoFACode) {
         // TODO: replace this with faker email address
-        let random_email = "test@test.com";
-        let email = Email::parse(random_email).expect("Unable to parse dummy email account");
+        let random_email = "test@test.com".to_owned();
+        let secret = Secret::new(random_email);
+        let email = Email::parse(secret).expect("Unable to parse dummy email account");
         let id = LoginAttemptId::default();
         let code = TwoFACode::default();
         (email, id, code)
