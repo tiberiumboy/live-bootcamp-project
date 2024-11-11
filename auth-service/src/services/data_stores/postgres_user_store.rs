@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use argon2::{
     password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
     PasswordVerifier, Version,
@@ -20,24 +22,52 @@ impl PostgresUserStore {
         Self { pool }
     }
 
-    pub fn verify_password_hash(
+    #[tracing::instrument(name = "Verify password hash", skip_all)]
+    pub async fn verify_password_hash(
         expected_password_hash: String,
         password_candidate: String,
-    ) -> Result<(), argon2::password_hash::Error> {
-        let expected_password_hash = PasswordHash::new(&expected_password_hash)?;
-        Argon2::default().verify_password(password_candidate.as_bytes(), &expected_password_hash)
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let curr_span: tracing::Span = tracing::Span::current();
+
+        let result = tokio::task::spawn_blocking(move || {
+            curr_span.in_scope(|| {
+                let expected_password_hash = PasswordHash::new(&expected_password_hash)?;
+                Argon2::default()
+                    .verify_password(password_candidate.as_bytes(), &expected_password_hash)
+                    .map_err(|e| e.into())
+            })
+        })
+        .await;
+
+        result?
     }
 
-    pub fn compute_password_hash(password: String) -> Result<String, argon2::password_hash::Error> {
-        let salt = SaltString::generate(&mut rand::thread_rng());
-        let password_hash = Argon2::new(
-            Algorithm::Argon2id,
-            Version::V0x13,
-            Params::new(15000, 2, 1, None)?,
-        )
-        .hash_password(&password.as_bytes(), &salt)?
-        .to_string();
-        Ok(password_hash)
+    pub async fn compute_password_hash(
+        password: String,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let span = tracing::Span::current();
+        let result = tokio::task::spawn_blocking(move || {
+            span.in_scope(|| {
+                let salt = SaltString::generate(&mut rand::thread_rng());
+                let result = Argon2::new(
+                    Algorithm::Argon2id,
+                    Version::V0x13,
+                    Params::new(15000, 2, 1, None)?,
+                )
+                .hash_password(&password.as_bytes(), &salt)?
+                .to_string();
+
+                Ok(result)
+                // Temporary error to display Task 2 idiomatic errors part.
+                // Err(
+                //     Box::new(std::io::Error::other("Oh no! What shall we ever do?"))
+                //         as Box<dyn Error + Send + Sync>,
+                // )
+            })
+        })
+        .await;
+
+        result?
     }
 }
 
@@ -50,18 +80,16 @@ struct UserDB {
 
 #[async_trait::async_trait]
 impl UserStore for PostgresUserStore {
-    // TODO: fulfill the implementation for this trait
+    #[tracing::instrument(name = "Add user to PostgreSQL", skip_all)]
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
         let email: &Email = user.as_ref();
         let user_pwd: &Password = user.as_ref();
-        let pwd_str: String = user_pwd.as_ref().to_owned();
+        let pwd_str = user_pwd.as_ref();
         // todo: need to read more about how I can move objects into thread properly?
         // I would like to learn more about how the move keyword works?
-        let password_hash = tokio::task::spawn_blocking(move || {
-            Self::compute_password_hash(pwd_str).map_err(|_| UserStoreError::UnexpectedError)
-        })
-        .await
-        .map_err(|_| UserStoreError::UnexpectedError)??;
+        let password_hash = Self::compute_password_hash(pwd_str.to_owned())
+            .await
+            .map_err(|_| UserStoreError::UnexpectedError)?;
 
         sqlx::query!(
             "INSERT INTO users (email, password_hash, requires_2FA) VALUES( $1, $2, $3);",
@@ -76,6 +104,7 @@ impl UserStore for PostgresUserStore {
         Ok(())
     }
 
+    #[tracing::instrument(name = "Fetch user from PostgreSQL", skip_all)]
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         let sql = "SELECT email, password_hash, requires_2fa FROM users WHERE email = $1";
         let email = email.as_ref();
@@ -98,6 +127,7 @@ impl UserStore for PostgresUserStore {
         }
     }
 
+    #[tracing::instrument(name = "Validate user from PostgreSQL", skip_all)]
     async fn validate_user(
         &self,
         email: &Email,
@@ -105,21 +135,19 @@ impl UserStore for PostgresUserStore {
     ) -> Result<User, UserStoreError> {
         let user = self.get_user(email).await?;
 
-        let pwd_str: String = password.as_ref().to_owned();
+        let pwd_str = password.as_ref();
         let pwd: &Password = user.as_ref();
-        let pwd = pwd.as_ref().to_string().to_owned();
-        let result = tokio::task::spawn_blocking(move || {
-            PostgresUserStore::verify_password_hash(pwd, pwd_str)
-        })
-        .await
-        .map_err(|_| UserStoreError::UnexpectedError)?;
+        let pwd = pwd.as_ref();
+        let result =
+            PostgresUserStore::verify_password_hash(pwd.to_owned(), pwd_str.to_owned()).await;
 
         match result {
             Ok(_) => Ok(user),
-            Err(_) => Err(UserStoreError::InvalidCredentials),
+            Err(_) => Err(UserStoreError::UnexpectedError),
         }
     }
 
+    #[tracing::instrument(name = "Delete user from PostgreSQL", skip_all)]
     async fn delete_user(&mut self, email: Email) -> Result<(), UserStoreError> {
         let sql = "DELETE FROM users WHERE email = ?";
         match sqlx::query(sql)

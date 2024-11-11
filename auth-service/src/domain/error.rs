@@ -1,4 +1,13 @@
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::Json;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+#[derive(Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
 
 #[derive(Debug, Error)]
 pub enum AuthAPIError {
@@ -22,4 +31,27 @@ pub enum AuthAPIError {
     Invalid2FACode,
     #[error("Mismatch identification")]
     MismatchIdentification,
+}
+
+impl IntoResponse for AuthAPIError {
+    fn into_response(self) -> Response {
+        let (status, error_msg) = match self {
+            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
+            AuthAPIError::IncorrectCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
+            AuthAPIError::UnexpectedError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
+            }
+            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid JWT Token"),
+            AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
+            AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
+            AuthAPIError::InvalidLoginId => (StatusCode::BAD_REQUEST, "Invalid Login ID"),
+            AuthAPIError::Invalid2FACode => (StatusCode::BAD_REQUEST, "Invalid 2FA Code"),
+            AuthAPIError::MismatchIdentification => (StatusCode::UNAUTHORIZED, "Mismatch identity"),
+            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing JWT Token"),
+        };
+        let body = Json(ErrorResponse {
+            error: error_msg.to_owned(),
+        });
+        (status, body).into_response()
+    }
 }

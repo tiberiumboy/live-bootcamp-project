@@ -8,7 +8,10 @@ use auth_service::{
         },
         mock_email_client::MockEmailClient,
     },
-    utils::constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
+    utils::{
+        constants::{prod, DATABASE_URL, REDIS_HOST_NAME},
+        tracing::init_tracing,
+    },
     Application,
 };
 use sqlx::PgPool;
@@ -37,6 +40,7 @@ fn configure_redis() -> redis::Connection {
 
 #[tokio::main]
 async fn main() {
+    init_tracing();
     let pg_pool = config_postgresql().await;
     let redis_client = Arc::new(RwLock::new(configure_redis()));
 

@@ -1,54 +1,23 @@
 use app_state::AppState;
 use axum::{
-    http::{HeaderValue, Method, StatusCode},
-    response::{IntoResponse, Response},
+    http::{HeaderValue, Method},
     routing::{get, post, Router},
     serve::Serve,
-    Json,
 };
-use domain::error::AuthAPIError;
 use redis::{Client, RedisResult};
 use routes::{hello, login, logout, signup, verify_2fa, verify_token};
-use serde::{Deserialize, Serialize};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::io;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
+use utils::tracing::{make_span_with_request_id, on_request, on_response};
 
 pub mod app_state;
 pub mod domain;
 pub mod routes;
 pub mod services;
 pub mod utils;
-
-#[derive(Serialize, Deserialize)]
-pub struct ErrorResponse {
-    pub error: String,
-}
-
-impl IntoResponse for AuthAPIError {
-    fn into_response(self) -> Response {
-        let (status, error_msg) = match self {
-            AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
-            AuthAPIError::IncorrectCredentials => (StatusCode::UNAUTHORIZED, "Invalid credentials"),
-            AuthAPIError::UnexpectedError => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
-            }
-            AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid JWT Token"),
-            AuthAPIError::InvalidEmail => (StatusCode::BAD_REQUEST, "Invalid email input"),
-            AuthAPIError::InvalidPassword => (StatusCode::BAD_REQUEST, "Invalid password input"),
-            AuthAPIError::InvalidLoginId => (StatusCode::BAD_REQUEST, "Invalid Login ID"),
-            AuthAPIError::Invalid2FACode => (StatusCode::BAD_REQUEST, "Invalid 2FA Code"),
-            AuthAPIError::MismatchIdentification => (StatusCode::UNAUTHORIZED, "Mismatch identity"),
-            AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing JWT Token"),
-        };
-        let body = Json(ErrorResponse {
-            error: error_msg.to_owned(),
-        });
-        (status, body).into_response()
-    }
-}
 
 pub struct Application {
     server: Serve<Router, Router>,
@@ -79,7 +48,13 @@ impl Application {
             .route("/verify-2fa", post(verify_2fa))
             .route("/verify-token", post(verify_token))
             .with_state(app_state)
-            .layer(cors);
+            .layer(cors)
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(make_span_with_request_id)
+                    .on_request(on_request)
+                    .on_response(on_response),
+            );
 
         let listener = TcpListener::bind(socket).await?;
         let address = listener.local_addr()?;
@@ -98,7 +73,7 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<(), io::Error> {
-        println!("Listening on {}", &self.address);
+        tracing::info!("Listening on {}", &self.address);
         self.server.await
     }
 }

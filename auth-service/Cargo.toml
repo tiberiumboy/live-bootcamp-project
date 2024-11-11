@@ -42,7 +42,9 @@ sqlx = { version = "*", features = [
 ] } # Task states to use exact version "0.8"? Why?
 thiserror = "1.0.64"
 tokio = { version = "^1", features = ["full"] }
-tower-http = { version = "^0", features = ["fs", "cors"] }
+tower-http = { version = "^0", features = ["fs", "cors", "trace"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
 uuid = { version = "^1", features = ["v4", "serde"] }
 # test_helpers = { path = "../test_helpers" }
 # I want to rely on the test helpers in the local file, instead of reading into repository... why can't I do this?
