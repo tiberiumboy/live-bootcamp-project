@@ -5,13 +5,12 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies]
-reqwest = { version = "^0", default-features = false, features = [
-    "json",
-    "cookies",
-] }
+fake = "*"
 rstest = "0.23.0"
 quickcheck = "0.9.2"
 quickcheck_macros = "0.9.1"
+# Creating HTTP mocks interaction
+wiremock = "0.6.0"
 
 [dependencies]
 # Used to hash Password before storing to database.
@@ -34,6 +33,12 @@ rand = "0.8.5"
 regex = "1.11.0"
 # used to store banned token
 redis = { version = "0.27.5", features = ["tokio-comp"] }
+# used to send out email for 2FA code authentication - Also used for integration test
+reqwest = { version = "^0", default-features = false, features = [
+    "json",
+    "rustls-tls",
+    "cookies",
+] }
 # used to safeguard sensitive data in parameters input
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "^1", features = ["derive"] }

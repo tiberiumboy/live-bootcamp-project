@@ -14,12 +14,13 @@ use auth_service::{
     },
     Application,
 };
+use secrecy::ExposeSecret;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 async fn config_postgresql() -> PgPool {
-    let pg_pool = Application::get_postgres_pool(&DATABASE_URL)
+    let pg_pool = Application::get_postgres_pool(&DATABASE_URL.expose_secret())
         .await
         .expect("Fail to create Postgresql connection pool!");
 

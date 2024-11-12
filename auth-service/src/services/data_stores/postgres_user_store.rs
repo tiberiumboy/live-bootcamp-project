@@ -101,12 +101,12 @@ impl UserStore for PostgresUserStore {
         .await
         .map_err(|e| UserStoreError::UnexpectedError(e.into()))
         .map(|row| {
-            let email = Email::parse(row.email).map_err(UserStoreError::UnexpectedError)?;
-            let secret = Secret::new(row.password_hash);
-            let password = Password::parse(secret).map_err(UserStoreError::UnexpectedError)?;
+            let email =
+                Email::parse(Secret::new(row.email)).map_err(UserStoreError::UnexpectedError)?;
+            let password = Password::parse(Secret::new(row.password_hash))
+                .map_err(UserStoreError::UnexpectedError)?;
             Ok(User::new(email, password, row.requires_2fa))
-        })
-        .ok_or(UserStoreError::UserNotFound)?
+        })?
     }
 
     #[tracing::instrument(name = "Validate user from PostgreSQL", skip_all)]
@@ -125,7 +125,6 @@ impl UserStore for PostgresUserStore {
 
         match result {
             Ok(_) => Ok(user),
-            Err(e) => Err(UserStoreError::UnexpectedError(e.into())),
             Err(e) => Err(UserStoreError::UnexpectedError(e.into())),
         }
     }

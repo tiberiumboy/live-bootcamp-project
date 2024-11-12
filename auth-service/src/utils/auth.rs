@@ -7,12 +7,12 @@ use color_eyre::eyre::{Context, ContextCompat, Result};
 use jsonwebtoken::{
     decode, encode, errors::Error as JWTError, DecodingKey, EncodingKey, Validation,
 };
-use secrecy::{ExposeSecret, Secret};
-use serde::Deserialize;
+use secrecy::ExposeSecret;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: Secret<String>, // Task 4 requires me to update auth's claim to use secret, but encode needs to be able to serialize this input??
+    pub sub: String, // Task 4 requires me to update auth's claim to use secret, but encode needs to be able to serialize this input??
     pub exp: usize,
 }
 
@@ -48,7 +48,7 @@ pub fn generate_auth_token(email: &Email) -> Result<String> {
         .try_into()
         .wrap_err("Unable to convert expiration type")?;
 
-    let sub = email.as_ref().to_owned();
+    let sub = email.as_ref().expose_secret().to_owned();
     let claims = Claims { sub, exp };
     create_token(claims)
 }
@@ -72,7 +72,7 @@ pub async fn validate_token(token: &str) -> Result<Claims, JWTError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use secrecy::Secret;
+    use secrecy::{ExposeSecret, Secret};
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {
@@ -101,15 +101,15 @@ mod tests {
     #[tokio::test]
     async fn test_validate_token_with_valid_token() {
         let account = "test@test.com".to_owned();
-        let secret = Secret::new(account);
-        let email = Email::parse(secret.clone()).unwrap();
+        let secret = Secret::new(account.clone());
+        let email = Email::parse(secret).unwrap();
         let token = generate_auth_token(&email).unwrap();
         let result = validate_token(&token).await;
 
         assert!(result.is_ok());
 
         let result = result.unwrap();
-        assert_eq!(result.sub.expose_secret(), secret.expose_secret());
+        assert_eq!(result.sub, account);
 
         let exp = Utc::now()
             .checked_add_signed(chrono::Duration::try_minutes(9).expect("valid duration"))

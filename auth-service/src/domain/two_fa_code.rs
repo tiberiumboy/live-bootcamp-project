@@ -16,7 +16,7 @@ impl TwoFACode {
     }
 
     fn validate(s: &str) -> bool {
-        s.len() == 6 && s.chars().any(|v| !v.is_ascii_digit())
+        s.len() == 6 && !s.chars().any(|v| !v.is_ascii_digit())
     }
 }
 

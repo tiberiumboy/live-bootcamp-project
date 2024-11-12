@@ -13,6 +13,7 @@ use auth_service::{
     Application,
 };
 use reqwest::{cookie::Jar, Client};
+use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
@@ -69,7 +70,7 @@ impl TestApp {
     }
 
     async fn configure_postgresql() -> (PgPool, String) {
-        let postgresql_conn_url = DATABASE_URL.to_owned();
+        let postgresql_conn_url = DATABASE_URL.expose_secret().to_owned();
 
         let db_name = Uuid::new_v4().to_string();
 
@@ -86,7 +87,7 @@ impl TestApp {
     }
 
     async fn delete_database(db_name: &str) {
-        let pgsql_conn_str = DATABASE_URL.to_owned();
+        let pgsql_conn_str = DATABASE_URL.expose_secret().to_owned();
 
         let conn_options = PgConnectOptions::from_str(&pgsql_conn_str)
             .expect("Failed to parse PostgreSQL connection string");
@@ -107,8 +108,8 @@ impl TestApp {
         self.clean_up_called = true;
     }
 
-    pub fn get_random_email() -> String {
-        format!("{}@example.com", Uuid::new_v4())
+    pub fn get_random_email() -> Secret<String> {
+        Secret::new(format!("{}@example.com", Uuid::new_v4()))
     }
 
     pub async fn new() -> Self {

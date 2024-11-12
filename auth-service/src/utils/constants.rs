@@ -25,6 +25,13 @@ pub static REDIS_HOST_NAME: LazyLock<String> = LazyLock::new(|| {
     std_env::var(env::REDIS_HOST_ENV_VAR).unwrap_or(DEFAULT_REDIS_HOSTNAME.to_owned())
 });
 
+pub static POSTMARK_AUTH_TOKEN: LazyLock<Secret<String>> = LazyLock::new(|| {
+    dotenv().ok();
+    Secret::new(
+        std_env::var(env::POSTMARK_AUTH_TOKEN_ENV_VAR).expect("POSTMARK_AUTH_TOKEN must be set!"),
+    )
+});
+
 pub const JWT_COOKIE_NAME: &str = "jwt";
 pub const TOKEN_TTL_SECONDS: i64 = 600; // 10 minutes
 pub const DEFAULT_REDIS_HOSTNAME: &str = "127.0.0.1";
@@ -33,6 +40,7 @@ pub mod env {
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
     pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
     pub const REDIS_HOST_ENV_VAR: &str = "REDIS_HOST_NAME";
+    pub const POSTMARK_AUTH_TOKEN_ENV_VAR: &str = "POSTMARK_AUTH_TOKEN";
 }
 
 pub mod prod {
@@ -44,6 +52,13 @@ pub mod prod {
     const IP_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
     const PORT: u16 = 3000;
     pub const APP_ADDR: SocketAddr = SocketAddr::new(IP_ADDR, PORT);
+    pub mod email_client {
+        use std::time::Duration;
+
+        pub const BASE_URL: &str = "https://api.postmarkapp.com/email";
+        pub const SENDER: &str = "bogdan@codeiron.io";
+        pub const TIMEOUT: Duration = Duration::from_secs(10);
+    }
 }
 
 pub mod test {
@@ -51,4 +66,11 @@ pub mod test {
     const IP_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
     const PORT: u16 = 0;
     pub const APP_ADDR: SocketAddr = SocketAddr::new(IP_ADDR, PORT);
+    pub mod email_client {
+        use std::time::Duration;
+
+        pub const BASE_URL: &str = ""; // there isn't a base url for this???
+        pub const SENDER: &str = "test@email.com";
+        pub const TIMEOUT: Duration = Duration::from_millis(200);
+    }
 }
