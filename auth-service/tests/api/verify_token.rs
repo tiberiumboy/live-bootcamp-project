@@ -8,7 +8,7 @@ use test_helpers::api_test;
 #[api_test]
 async fn valid_token_should_return_200() {
     let random_email = TestApp::get_random_email();
-    let email = Email::parse(&random_email).expect("Unable to parse email");
+    let email = Email::parse(random_email).expect("Unable to parse email");
     let jwt = generate_auth_token(&email)
         .expect("dummy token is not valid! Please provide a valid token!");
     let body = JWToken { token: jwt };

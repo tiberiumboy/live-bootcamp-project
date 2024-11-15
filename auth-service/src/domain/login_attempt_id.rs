@@ -1,3 +1,4 @@
+use color_eyre::eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -5,11 +6,9 @@ use uuid::Uuid;
 pub struct LoginAttemptId(String);
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, String> {
-        match id.parse::<Uuid>() {
-            Ok(id) => Ok(Self(id.to_string())),
-            Err(e) => Err(e.to_string()),
-        }
+    pub fn parse(id: String) -> Result<Self> {
+        let parsed_id = id.parse::<Uuid>().wrap_err("Invalid login attempt")?;
+        Ok(Self(parsed_id.to_string()))
     }
 }
 

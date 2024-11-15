@@ -3,14 +3,19 @@ use auth_service::{
     domain::email::Email, routes::TwoFactorAuthResponse, utils::constants::JWT_COOKIE_NAME,
 };
 use reqwest::StatusCode;
+use secrecy::{ExposeSecret, Secret};
 use test_helpers::api_test;
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 #[api_test]
 pub async fn should_return_200_if_valid_cred_no_2fa() {
     let email = TestApp::get_random_email();
 
     let signup = serde_json::json!({
-        "email":email,
+        "email":email.expose_secret(),
         "password":"Password123!",
         "requires2FA": false
     });
@@ -19,7 +24,7 @@ pub async fn should_return_200_if_valid_cred_no_2fa() {
     assert_eq!(response.status(), StatusCode::CREATED);
 
     let login = serde_json::json!({
-        "email": email,
+        "email": email.expose_secret(),
         "password":"Password123!"
     });
 
@@ -36,11 +41,12 @@ pub async fn should_return_200_if_valid_cred_no_2fa() {
 
 #[api_test]
 pub async fn should_return_206_if_valid_cred_with_2fa() {
-    // TODO: use faker lib to generate fake email
-    let email = Email::parse("test@test.com").expect("Unable to parse dummy email account");
+    let input = "test@test.com".to_owned();
+    let secret = Secret::new(input.clone());
+    let email = Email::parse(secret).expect("Unable to parse dummy email account");
     // first, create a test account.
     let body = serde_json::json!({
-        "email":email.as_ref(),
+        "email":input.clone(),
         "password":"Password123!",
         "requires2FA": true
     });
@@ -49,13 +55,21 @@ pub async fn should_return_206_if_valid_cred_with_2fa() {
 
     // then, log into test account
     let test = serde_json::json!({
-        "email":email.as_ref(),
+        "email":input,
         "password":"Password123!"
     });
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
 
     // check for result
     let result = app.post_login(&test).await;
     assert_eq!(result.status(), StatusCode::PARTIAL_CONTENT);
+
     let body = result
         .json::<TwoFactorAuthResponse>()
         .await

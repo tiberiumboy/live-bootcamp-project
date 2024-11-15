@@ -1,27 +1,35 @@
 use dotenvy::dotenv;
+use secrecy::Secret;
 use std::{env as std_env, sync::LazyLock};
 
-pub static JWT_SECRET: LazyLock<String> = LazyLock::new(|| {
+pub static JWT_SECRET: LazyLock<Secret<String>> = LazyLock::new(|| {
     dotenv().ok();
     let secret = std_env::var(env::JWT_SECRET_ENV_VAR).expect("JWT_SECRET must be set!");
     if secret.is_empty() {
         panic!("JWT_SECRET_ENV must not be empty!");
     }
-    secret
+    Secret::new(secret)
 });
 
-pub static DATABASE_URL: LazyLock<String> = LazyLock::new(|| {
+pub static DATABASE_URL: LazyLock<Secret<String>> = LazyLock::new(|| {
     dotenv().ok();
     let url = std_env::var(env::DATABASE_URL_ENV_VAR).expect("DATABASE_URL must be set!");
     if url.is_empty() {
         panic!("DATABASE_URL must not be empty?"); // should we be allow to panic at this stage?
     }
-    url
+    Secret::new(url)
 });
 
 pub static REDIS_HOST_NAME: LazyLock<String> = LazyLock::new(|| {
     dotenv().ok();
     std_env::var(env::REDIS_HOST_ENV_VAR).unwrap_or(DEFAULT_REDIS_HOSTNAME.to_owned())
+});
+
+pub static POSTMARK_AUTH_TOKEN: LazyLock<Secret<String>> = LazyLock::new(|| {
+    dotenv().ok();
+    Secret::new(
+        std_env::var(env::POSTMARK_AUTH_TOKEN_ENV_VAR).expect("POSTMARK_AUTH_TOKEN must be set!"),
+    )
 });
 
 pub const JWT_COOKIE_NAME: &str = "jwt";
@@ -32,6 +40,7 @@ pub mod env {
     pub const JWT_SECRET_ENV_VAR: &str = "JWT_SECRET";
     pub const DATABASE_URL_ENV_VAR: &str = "DATABASE_URL";
     pub const REDIS_HOST_ENV_VAR: &str = "REDIS_HOST_NAME";
+    pub const POSTMARK_AUTH_TOKEN_ENV_VAR: &str = "POSTMARK_AUTH_TOKEN";
 }
 
 pub mod prod {
@@ -43,6 +52,13 @@ pub mod prod {
     const IP_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::UNSPECIFIED);
     const PORT: u16 = 3000;
     pub const APP_ADDR: SocketAddr = SocketAddr::new(IP_ADDR, PORT);
+    pub mod email_client {
+        use std::time::Duration;
+
+        pub const BASE_URL: &str = "https://api.postmarkapp.com/email";
+        pub const SENDER: &str = "bogdan@codeiron.io";
+        pub const TIMEOUT: Duration = Duration::from_secs(10);
+    }
 }
 
 pub mod test {
@@ -50,4 +66,11 @@ pub mod test {
     const IP_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
     const PORT: u16 = 0;
     pub const APP_ADDR: SocketAddr = SocketAddr::new(IP_ADDR, PORT);
+    pub mod email_client {
+        use std::time::Duration;
+
+        pub const BASE_URL: &str = ""; // there isn't a base url for this???
+        pub const SENDER: &str = "test@email.com";
+        pub const TIMEOUT: Duration = Duration::from_millis(200);
+    }
 }

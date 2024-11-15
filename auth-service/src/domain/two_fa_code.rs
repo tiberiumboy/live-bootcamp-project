@@ -1,22 +1,22 @@
+use color_eyre::eyre::{eyre, Result};
 use rand::{thread_rng, Rng};
-use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, Secret};
+use serde::Deserialize;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct TwoFACode(String);
+#[derive(Debug, Clone, Deserialize)]
+pub struct TwoFACode(Secret<String>);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self, String> {
+    pub fn parse(code: Secret<String>) -> Result<Self> {
         // Code must be exactly 6 character long - this may include padding 0's
-        if code.len() != 6 {
-            return Err("Invalid code length!".to_owned());
+        if !Self::validate(code.expose_secret()) {
+            return Err(eyre!("Invalid code length!"));
         }
-
-        // Validate string input must be numeric only
-        if code.chars().any(|v| !v.is_ascii_digit()) {
-            return Err("Code contains non-digit value!".to_owned());
-        }
-
         Ok(Self(code))
+    }
+
+    fn validate(s: &str) -> bool {
+        s.len() == 6 && !s.chars().any(|v| !v.is_ascii_digit())
     }
 }
 
@@ -29,12 +29,21 @@ impl Default for TwoFACode {
         // append the number to the pad
         pad.push_str(&code);
         // truncate the pad off to exact 6 characters
-        Self(pad.split_off(pad.len() - 6))
+        let secret = Secret::new(pad.split_off(pad.len() - 6));
+        Self(secret)
     }
 }
 
-impl AsRef<str> for TwoFACode {
-    fn as_ref(&self) -> &str {
+impl PartialEq for TwoFACode {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.expose_secret() == other.0.expose_secret()
+    }
+}
+
+impl Eq for TwoFACode {}
+
+impl AsRef<Secret<String>> for TwoFACode {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
 }
@@ -43,31 +52,30 @@ impl AsRef<str> for TwoFACode {
 mod tests {
     use super::TwoFACode;
     use rstest::*;
+    use secrecy::Secret;
 
     #[test]
     fn parse_should_pass() {
         // must be exactly 6 digit number
         let pass = "123456".to_owned();
-        let code = TwoFACode::parse(pass);
+        let secret = Secret::new(pass);
+        let code = TwoFACode::parse(secret);
         assert!(code.is_ok())
     }
 
     #[test]
-    fn default_should_pass() {
-        let code = TwoFACode::default();
-        assert!(code.as_ref().len() == 6);
-        assert!(code.as_ref().chars().all(|v| v.is_ascii_digit()))
-    }
-
-    #[test]
     fn empty_string_should_fail() {
-        let response = TwoFACode::parse("".to_owned());
+        let pass = "".to_owned();
+        let secret = Secret::new(pass);
+        let response = TwoFACode::parse(secret);
         assert!(response.is_err());
     }
 
     #[test]
     fn string_contains_ascii_char_should_fail() {
-        let response = TwoFACode::parse("12345A".to_owned());
+        let pass = "12345A".to_owned();
+        let secret = Secret::new(pass);
+        let response = TwoFACode::parse(secret);
         assert!(response.is_err());
     }
 
@@ -80,7 +88,8 @@ mod tests {
     #[case("A23456")]
     #[test]
     fn string_contains_numeric_should_fail(#[case] code: &str) {
-        let response = TwoFACode::parse(code.to_owned());
+        let secret = Secret::new(code.to_owned());
+        let response = TwoFACode::parse(secret);
         assert!(response.is_err());
     }
 
@@ -93,7 +102,8 @@ mod tests {
     #[case("12345 ")]
     #[test]
     fn string_contains_space_should_fail(#[case] code: &str) {
-        let response = TwoFACode::parse(code.to_owned());
+        let secret = Secret::new(code.to_owned());
+        let response = TwoFACode::parse(secret);
         assert!(response.is_err());
     }
 
@@ -107,7 +117,8 @@ mod tests {
     #[case("12345678")]
     #[case("123456789")]
     fn code_not_six_characters_limit_should_fail(#[case] code: &str) {
-        let response = TwoFACode::parse(code.to_owned());
+        let secret = Secret::new(code.to_owned());
+        let response = TwoFACode::parse(secret);
         assert!(response.is_err());
     }
 
@@ -122,7 +133,8 @@ mod tests {
             "12345 ",  // 6 characters long, but contians invalid non-numeric character
         ];
         for test in test_case {
-            let response = TwoFACode::parse(test.to_owned());
+            let secret = Secret::new(test.to_owned());
+            let response = TwoFACode::parse(secret);
             assert!(response.is_err());
         }
     }

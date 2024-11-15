@@ -1,12 +1,13 @@
 use crate::helpers::TestApp;
 use reqwest::StatusCode;
+use secrecy::ExposeSecret;
 use test_helpers::api_test;
 
 #[api_test]
 pub async fn should_return_201_if_valid_input() {
     let test_case = serde_json::json!(
         {
-            "email": TestApp::get_random_email(),
+            "email": TestApp::get_random_email().expose_secret(),
             "password":"password123!",
             "requires2FA":true
         }
@@ -26,13 +27,13 @@ pub async fn should_return_400_if_invalid_input() {
     let test_cases = [
         serde_json::json!({
             // password is too short
-            "email": &random_email,
+            "email": &random_email.expose_secret(),
             "password": "passwor",
             "requires2FA": true
         }),
         serde_json::json!({
             // email do not have '@' sign which is required
-            "email": &random_email.replace("@", "."),
+            "email": &random_email.expose_secret().replace("@", "."),
             "password": "password123",
             "requires2FA": true
         }),
@@ -56,8 +57,8 @@ pub async fn should_return_409_if_email_already_exists() {
     let random_password = TestApp::get_random_email();
 
     let user = serde_json::json!({
-        "email": random_email,
-        "password": random_password,
+        "email": random_email.expose_secret(),
+        "password": random_password.expose_secret(),
         "requires2FA": true
     });
 
@@ -80,11 +81,11 @@ async fn should_return_422_if_malformed_input() {
             "requires2FA": true
         }),
         serde_json::json!({
-            "email": &random_email,
+            "email": &random_email.expose_secret(),
             "password": "password123",
         }),
         serde_json::json!({
-            "email": &random_email,
+            "email": &random_email.expose_secret(),
             "requires2FA": true
         }),
     ];

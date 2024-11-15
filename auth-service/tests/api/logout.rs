@@ -5,10 +5,13 @@ use auth_service::{
 };
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use reqwest::{cookie::CookieStore, StatusCode, Url};
+use secrecy::Secret;
 use test_helpers::api_test;
 
 fn get_fake_email() -> Email {
-    Email::parse("test@test.com").expect("Unable to parse test email account!")
+    let input = "test@test.com".to_owned();
+    let secret = Secret::new(input);
+    Email::parse(secret).expect("Unable to parse test email account!")
 }
 
 fn generate_valid_token() -> String {
@@ -44,7 +47,6 @@ async fn valid_jwt_should_return_200() {
         let result = store.check_token(&token).await;
         assert_eq!(result, true);
     }
-    app.clean_up().await;
 }
 
 #[api_test]

@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 pub type UserStoreType = Arc<RwLock<dyn UserStore>>;
 pub type BannedTokenStoreType = Arc<RwLock<dyn BannedTokenStore>>;
 pub type TwoFAStoreType = Arc<RwLock<dyn TwoFACodeStore>>;
-pub type EmailClientType = Arc<RwLock<dyn EmailClient>>;
+pub type EmailClientType = Arc<dyn EmailClient>;
 
 #[derive(Clone)]
 pub struct AppState {

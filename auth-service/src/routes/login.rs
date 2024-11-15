@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use axum::{extract::State, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::error::AuthAPIError;
@@ -14,8 +15,8 @@ use crate::{
 
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
-    email: String,
-    password: String,
+    email: Secret<String>,
+    password: Secret<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -33,18 +34,21 @@ pub struct TwoFactorAuthResponse {
 }
 
 impl LoginRequest {
-    pub fn new(email: String, password: String) -> Self {
+    pub fn new(email: Secret<String>, password: Secret<String>) -> Self {
         Self { email, password }
     }
 }
 
+#[tracing::instrument(name = "Login", skip_all)]
 pub async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(login): Json<LoginRequest>,
 ) -> Result<(CookieJar, impl IntoResponse), AuthAPIError> {
-    let email = Email::parse(&login.email).map_err(|_| AuthAPIError::InvalidEmail)?;
-    let password = Password::parse(&login.password).map_err(|_| AuthAPIError::InvalidPassword)?;
+    let email =
+        Email::parse(login.email).map_err(|_| AuthAPIError::InvalidData("Email".to_owned()))?;
+    let password = Password::parse(login.password)
+        .map_err(|_| AuthAPIError::InvalidData("Password".to_owned()))?;
     let store = state.user_store.read().await;
     let user = store
         .validate_user(&email, &password)
@@ -60,6 +64,7 @@ pub async fn login(
     Ok((result.0, result.1.into_response()))
 }
 
+#[tracing::instrument(name = "Handle 2FA route", skip_all)]
 async fn handle_2fa(
     email: &Email,
     state: &AppState,
@@ -71,8 +76,10 @@ async fn handle_2fa(
     let id = LoginAttemptId::default();
     let code = TwoFACode::default();
 
-    let mut two_fa_store = state.two_fa_code_store.write().await;
-    if let Err(_) = two_fa_store
+    if let Err(e) = state
+        .two_fa_code_store
+        .write()
+        .await
         .add_code(email.clone(), id.clone(), code.clone())
         .await
     {
@@ -82,23 +89,20 @@ async fn handle_2fa(
            If we tried to add a new entry with existing email account, the databse will simply update the original value, returning as an error message...?
            Also, currently, there's no implementation to clear the database of stored/temp values? E.g. Banned token have expiration date, but banned token store will keep that record forever.
         */
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())));
     }
 
     // TODO: impl services that sends 2FA code to user's email
     let body = format!(
         "Please use this code to log into the website: {}",
-        code.as_ref()
+        code.as_ref().expose_secret()
     );
-    if state
+    if let Err(e) = state
         .email_client
-        .read()
-        .await
         .send_email(email, "Let's Get Rusty 2FA Code", &body)
         .await
-        .is_err()
     {
-        return (jar, Err(AuthAPIError::UnexpectedError));
+        return (jar, Err(AuthAPIError::UnexpectedError(e.into())));
     }
 
     let response = TwoFactorAuthResponse {
@@ -115,6 +119,7 @@ async fn handle_2fa(
     )
 }
 
+#[tracing::instrument(name = "Handle No 2FA route", skip_all)]
 async fn handle_no_2fa(
     email: &Email,
     jar: CookieJar,
@@ -124,8 +129,9 @@ async fn handle_no_2fa(
 ) {
     let auth_cookie = match generate_auth_cookie(&email) {
         Ok(cookie) => cookie,
-        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
+        Err(e) => return (jar, Err(AuthAPIError::UnexpectedError(e))),
     };
+
     let jar = jar.add(auth_cookie);
     (jar, Ok((StatusCode::OK, Json(LoginResponse::RegularAuth))))
 }

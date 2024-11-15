@@ -1,10 +1,6 @@
 use super::{email::Email, password::Password};
-
-#[derive(Debug)]
-pub enum UserError {
-    InvalidEmail,
-    InvalidPassword,
-}
+use color_eyre::eyre::Result;
+use secrecy::Secret;
 
 // #[derive(Debug, Clone, Default)]
 // pub enum UserRole {
@@ -34,7 +30,11 @@ impl User {
         }
     }
 
-    pub fn parse(email: &str, password: &str, requires_2fa: bool) -> Result<User, UserError> {
+    pub fn parse(
+        email: Secret<String>,
+        password: Secret<String>,
+        requires_2fa: bool,
+    ) -> Result<User> {
         let email = Email::parse(email)?;
         let password = Password::parse(password)?;
         Ok(User {

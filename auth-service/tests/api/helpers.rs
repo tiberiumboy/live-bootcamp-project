@@ -1,18 +1,19 @@
 use auth_service::{
     app_state::{AppState, BannedTokenStoreType},
-    domain::data_store::TwoFACodeStore,
+    domain::{data_store::TwoFACodeStore, email::Email},
     services::{
         data_stores::{
             hashmap_two_fa_code_store::HashmapTwoFACodeStore,
             postgres_user_store::PostgresUserStore,
             redis_banned_token_store::RedisBannedTokenStore,
         },
-        mock_email_client::MockEmailClient,
+        postmark_email_client::PostmarkEmailClient,
     },
     utils::constants::{test, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
 use reqwest::{cookie::Jar, Client};
+use secrecy::{ExposeSecret, Secret};
 use serde::Serialize;
 use sqlx::{
     postgres::{PgConnectOptions, PgPoolOptions},
@@ -21,6 +22,7 @@ use sqlx::{
 use std::{str::FromStr, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use uuid::Uuid;
+use wiremock::MockServer;
 
 pub struct TestApp {
     pub address: String,
@@ -28,6 +30,7 @@ pub struct TestApp {
     pub http_client: Client,
     pub banned_store: BannedTokenStoreType,
     pub two_fa_code_store: Arc<RwLock<dyn TwoFACodeStore>>,
+    pub email_server: MockServer,
     db_name: String,
     clean_up_called: bool,
 }
@@ -69,7 +72,7 @@ impl TestApp {
     }
 
     async fn configure_postgresql() -> (PgPool, String) {
-        let postgresql_conn_url = DATABASE_URL.to_owned();
+        let postgresql_conn_url = DATABASE_URL.expose_secret().to_owned();
 
         let db_name = Uuid::new_v4().to_string();
 
@@ -85,8 +88,19 @@ impl TestApp {
         )
     }
 
+    fn configure_postmark_email_client(base_url: String) -> PostmarkEmailClient {
+        let auth_token = Secret::new("auth_token".to_owned());
+        let sender = Email::parse(Secret::new(test::email_client::SENDER.to_owned())).unwrap();
+        let client = Client::builder()
+            .timeout(test::email_client::TIMEOUT)
+            .build()
+            .expect("Failed to build HTTP client");
+
+        PostmarkEmailClient::new(base_url, sender, auth_token, client)
+    }
+
     async fn delete_database(db_name: &str) {
-        let pgsql_conn_str = DATABASE_URL.to_owned();
+        let pgsql_conn_str = DATABASE_URL.expose_secret().to_owned();
 
         let conn_options = PgConnectOptions::from_str(&pgsql_conn_str)
             .expect("Failed to parse PostgreSQL connection string");
@@ -107,8 +121,8 @@ impl TestApp {
         self.clean_up_called = true;
     }
 
-    pub fn get_random_email() -> String {
-        format!("{}@example.com", Uuid::new_v4())
+    pub fn get_random_email() -> Secret<String> {
+        Secret::new(format!("{}@example.com", Uuid::new_v4()))
     }
 
     pub async fn new() -> Self {
@@ -121,7 +135,11 @@ impl TestApp {
         let banned_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(redis_wrap)));
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool)));
         let two_fa_code_store = Arc::new(RwLock::new(HashmapTwoFACodeStore::default()));
-        let email_client = Arc::new(RwLock::new(MockEmailClient));
+
+        let email_server = MockServer::start().await;
+        let base_url = email_server.uri();
+        let email_client = Arc::new(Self::configure_postmark_email_client(base_url));
+
         let app_state = AppState::new(
             user_store,
             banned_store.clone(),
@@ -150,6 +168,7 @@ impl TestApp {
             http_client,
             banned_store,
             two_fa_code_store,
+            email_server,
             db_name,
             clean_up_called: false,
         }
@@ -193,8 +212,8 @@ impl TestApp {
 impl Drop for TestApp {
     fn drop(&mut self) {
         if !self.clean_up_called {
-            // TODO: Wish I could just call the cleanup function here but it's async... Shrug?
-            panic!("Database was not clean up!");
+            // Used to help remind other developers they need to either use the annotation [test_helper] or manually call app.clean_up().await; at the end of their unit test.
+            panic!("Database was not clean up! Please use the clean_up() function or use the macro test annotation");
         }
     }
 }
