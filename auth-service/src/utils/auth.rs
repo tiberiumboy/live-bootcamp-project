@@ -72,7 +72,7 @@ pub async fn validate_token(token: &str) -> Result<Claims, JWTError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use secrecy::{ExposeSecret, Secret};
+    use secrecy::Secret;
 
     #[tokio::test]
     async fn test_generate_auth_cookie() {

@@ -99,8 +99,6 @@ async fn handle_2fa(
     );
     if let Err(e) = state
         .email_client
-        .read()
-        .await
         .send_email(email, "Let's Get Rusty 2FA Code", &body)
         .await
     {

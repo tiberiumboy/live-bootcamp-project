@@ -5,6 +5,10 @@ use auth_service::{
 use reqwest::StatusCode;
 use secrecy::{ExposeSecret, Secret};
 use test_helpers::api_test;
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
+};
 
 #[api_test]
 pub async fn should_return_200_if_valid_cred_no_2fa() {
@@ -55,9 +59,17 @@ pub async fn should_return_206_if_valid_cred_with_2fa() {
         "password":"Password123!"
     });
 
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
     // check for result
     let result = app.post_login(&test).await;
     assert_eq!(result.status(), StatusCode::PARTIAL_CONTENT);
+
     let body = result
         .json::<TwoFactorAuthResponse>()
         .await
